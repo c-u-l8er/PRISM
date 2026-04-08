@@ -1,0 +1,31 @@
+app = "prism-eval"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MIX_ENV = "prod"
+  RUNNER_POOL_SIZE = "4"
+  PHX_HOST = "prism-eval.fly.dev"
+  POOL_SIZE = "10"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1024mb"
+
+[mounts]
+  source = "prism_data"
+  destination = "/app/data"
