@@ -1,0 +1,23 @@
+# Elixir build artifacts
+/_build/
+/deps/
+
+# Generated on crash or node disconnection
+erl_crash.dump
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Environment and secrets
+.env
+*.secret.exs
+
+# IDE / editor
+.elixir_ls/
+.lexical/
+
+# OS files
+.DS_Store
+Thumbs.db
