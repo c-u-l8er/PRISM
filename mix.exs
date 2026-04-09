@@ -6,11 +6,15 @@ defmodule Prism.MixProject do
       app: :prism,
       version: "0.1.0",
       elixir: "~> 1.17",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   def application do
     [
@@ -21,9 +25,10 @@ defmodule Prism.MixProject do
 
   defp deps do
     [
-      # Database
+      # Database — SQLite for local dev, Postgres for production (Supabase)
       {:ecto_sql, "~> 3.12"},
-      {:postgrex, ">= 0.0.0"},
+      {:ecto_sqlite3, "~> 0.17"},
+      {:postgrex, ">= 0.0.0", optional: true},
 
       # HTTP client for LLM APIs
       {:req, "~> 0.5"},
@@ -36,9 +41,8 @@ defmodule Prism.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.1"},
 
-      # MCP server
-      # We'll implement a minimal MCP stdio transport
-      # {:anubis_mcp, github: "c-u-l8er/anubis_mcp"} # or custom
+      # MCP server (vendored from graphonomous)
+      {:anubis_mcp, path: "../graphonomous/vendor/anubis_mcp"},
 
       # UUID generation
       {:elixir_uuid, "~> 1.2"}

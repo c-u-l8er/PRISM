@@ -1,28 +1,42 @@
 defmodule Prism.Application do
   @moduledoc """
-  CL-Eval: Self-Improving Continual Learning Evaluation Engine.
+  PRISM: Self-Improving Continual Learning Evaluation Engine.
 
   Supervision tree:
-  - Repo (Postgres)
-  - CycleManager (orchestrates the A→B→C loop)
-  - RunnerPool (concurrent test execution)
-  - MCPServer (exposes 29 tools via MCP)
-  - Telemetry supervisor
+  - Repo (SQLite in dev, Postgres in prod)
+  - Scenario.Library (ETS-cached scenarios + IRT params)
+  - Simulator.Supervisor (concurrent interaction sessions)
+  - Judge.Supervisor (concurrent judging tasks)
+  - IRT.Calibrator (parameter estimation)
+  - Cycle.Manager (4-phase loop orchestrator)
+  - Telemetry
   """
   use Application
 
   @impl true
   def start(_type, _args) do
+    # In-memory store for task profiles (no DB table yet)
+    :ets.new(:prism_task_profiles, [:named_table, :set, :public])
+
     children = [
+      # MCP Registry (required by Anubis.Server.Supervisor)
+      Anubis.Server.Registry,
+
       # Database
       Prism.Repo,
 
-      # Core engine
-      {Prism.Cycle.Manager, []},
-      {Prism.Runner.Pool, pool_size: pool_size()},
+      # Scenario library (ETS cache)
+      Prism.Scenario.Library,
 
-      # MCP Server (stdio transport)
-      {Prism.MCP.Server, transport: :stdio},
+      # Concurrent execution supervisors
+      Prism.Simulator.Supervisor,
+      Prism.Judge.Supervisor,
+
+      # IRT calibration
+      Prism.IRT.Calibrator,
+
+      # Core engine (4-phase loop)
+      {Prism.Cycle.Manager, []},
 
       # Telemetry
       Prism.Telemetry
@@ -30,9 +44,5 @@ defmodule Prism.Application do
 
     opts = [strategy: :one_for_one, name: Prism.Supervisor]
     Supervisor.start_link(children, opts)
-  end
-
-  defp pool_size do
-    System.get_env("RUNNER_POOL_SIZE", "4") |> String.to_integer()
   end
 end

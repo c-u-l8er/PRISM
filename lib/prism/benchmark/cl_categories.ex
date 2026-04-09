@@ -93,7 +93,8 @@ defmodule Prism.Benchmark.CLCategories do
       question_templates: [
         %{
           type: :simple_contradiction,
-          pattern: "Session 1: 'I live in NYC'. Session 5: 'I moved to Austin'. Query: 'Where do I live?'",
+          pattern:
+            "Session 1: 'I live in NYC'. Session 5: 'I moved to Austin'. Query: 'Where do I live?'",
           scoring: "1 for Austin, 0.5 if both mentioned with Austin as current, 0 for NYC"
         },
         %{
@@ -117,14 +118,13 @@ defmodule Prism.Benchmark.CLCategories do
       external_benchmarks: [
         "BEAM (contradiction resolution)",
         "LongMemEval (knowledge update track)",
-        "GraphMemBench (belief revision)",
         "MemoryAgentBench (conflict resolution)"
       ]
     },
     %{
       id: :consolidation,
       name: "Memory Consolidation & Abstraction",
-      weight: 0.12,
+      weight: 0.10,
       description: """
       Does the system compress, merge, or abstract knowledge over time?
       Can it go from raw episodes to structured insights?
@@ -132,7 +132,8 @@ defmodule Prism.Benchmark.CLCategories do
       question_templates: [
         %{
           type: :summarization,
-          pattern: "Ingest 50 sessions about project X. Query: 'Give me a comprehensive summary.'",
+          pattern:
+            "Ingest 50 sessions about project X. Query: 'Give me a comprehensive summary.'",
           scoring: "Scored on completeness, accuracy, and compression ratio"
         },
         %{
@@ -162,7 +163,7 @@ defmodule Prism.Benchmark.CLCategories do
     %{
       id: :temporal,
       name: "Temporal Reasoning",
-      weight: 0.10,
+      weight: 0.12,
       description: """
       Can the system reason about when things happened, in what order,
       and what's current vs. outdated?
@@ -180,7 +181,8 @@ defmodule Prism.Benchmark.CLCategories do
         },
         %{
           type: :recency_awareness,
-          pattern: "Old fact from 6 months ago vs. recent fact from yesterday. Query prefers recent.",
+          pattern:
+            "Old fact from 6 months ago vs. recent fact from yesterday. Query prefers recent.",
           scoring: "1 if recent fact prioritized, 0 if old fact returned"
         }
       ],
@@ -200,7 +202,7 @@ defmodule Prism.Benchmark.CLCategories do
     %{
       id: :transfer,
       name: "Cross-Domain Transfer",
-      weight: 0.08,
+      weight: 0.07,
       description: """
       Can knowledge from one domain improve performance on another?
       Does learning compound across contexts?
@@ -236,9 +238,9 @@ defmodule Prism.Benchmark.CLCategories do
       ]
     },
     %{
-      id: :uncertainty,
+      id: :epistemic_awareness,
       name: "Epistemic Awareness & Calibration",
-      weight: 0.07,
+      weight: 0.08,
       description: """
       Does the system know what it knows and what it doesn't?
       Can it quantify confidence and abstain when appropriate?
@@ -290,7 +292,8 @@ defmodule Prism.Benchmark.CLCategories do
         },
         %{
           type: :policy_pruning,
-          pattern: "Ingest 100 facts with varying importance. Trigger pruning. Query for low-importance facts.",
+          pattern:
+            "Ingest 100 facts with varying importance. Trigger pruning. Query for low-importance facts.",
           scoring: "1 if low-importance pruned, high-importance retained"
         },
         %{
@@ -307,8 +310,7 @@ defmodule Prism.Benchmark.CLCategories do
         5 => "GDPR Article 17 full erasure with provenance audit"
       },
       external_benchmarks: [
-        "MemoryAgentBench (selective forgetting)",
-        "GraphMemBench (intentional forgetting phases)"
+        "MemoryAgentBench (selective forgetting)"
       ]
     },
     %{
@@ -322,17 +324,20 @@ defmodule Prism.Benchmark.CLCategories do
       question_templates: [
         %{
           type: :retrieval_feedback,
-          pattern: "System retrieves context, answers incorrectly. Provide 'unhelpful' signal. Ask again.",
+          pattern:
+            "System retrieves context, answers incorrectly. Provide 'unhelpful' signal. Ask again.",
           scoring: "1 if different (better) context retrieved on retry"
         },
         %{
           type: :ranking_adjustment,
-          pattern: "Over 10 queries, consistently mark one retrieved source as unhelpful. Check if it drops in ranking.",
+          pattern:
+            "Over 10 queries, consistently mark one retrieved source as unhelpful. Check if it drops in ranking.",
           scoring: "Score on ranking change magnitude"
         },
         %{
           type: :positive_reinforcement,
-          pattern: "Mark a retrieval as 'very helpful'. Check if similar queries surface similar context.",
+          pattern:
+            "Mark a retrieval as 'very helpful'. Check if similar queries surface similar context.",
           scoring: "1 if positive signal propagates to related queries"
         }
       ],
@@ -370,5 +375,32 @@ defmodule Prism.Benchmark.CLCategories do
   def validate_weights(weights) do
     sum = weights |> Map.values() |> Enum.sum()
     if abs(sum - 1.0) < 0.01, do: :ok, else: {:error, "Weights sum to #{sum}, expected 1.0"}
+  end
+
+  @doc "Get the weight vector as a map (alias for default_weights)."
+  def weights, do: default_weights()
+
+  @doc "Get all dimension keys as atoms."
+  def dimension_keys, do: ids()
+
+  @doc "Get dimension keys as strings (matching Judgment.valid_dimensions)."
+  def dimension_strings do
+    Enum.map(ids(), &Atom.to_string/1)
+  end
+
+  @doc "Get the scenario challenge patterns for a dimension (git-grounded)."
+  def challenge_patterns(id) when is_atom(id) do
+    case get(id) do
+      nil -> []
+      cat -> cat.question_templates
+    end
+  end
+
+  @doc "Get difficulty levels for a dimension."
+  def difficulty_levels(id) when is_atom(id) do
+    case get(id) do
+      nil -> %{}
+      cat -> cat.difficulty_levels
+    end
   end
 end

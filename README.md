@@ -1,79 +1,95 @@
 # PRISM — Protocol for Rating Iterative System Memory
 
-**OpenSentience Specification OS-009-PRISM**
+**OpenSentience Specification OS-009**
 
-A self-improving continual learning evaluation engine for AI agent memory systems.
+The first self-improving continual learning benchmark for AI agent memory systems.
 
-PRISM takes what looks like a single "memory benchmark score" and reveals the 9-dimensional CL spectrum underneath.
+## Legacy Benchmarks vs PRISM
 
-## What It Does
-
-PRISM runs a three-phase loop:
-
-1. **Generate** — An LLM produces benchmark questions from 9 CL category specs
-2. **Execute** — Run questions against any memory system via MCP
-3. **Judge** — An LLM scores answers, computes 9-dimensional CL scores, identifies gaps
-4. **Loop** — Gap analysis feeds back into generation, making the benchmark harder each cycle
+| | Legacy (BEAM, LongMemEval, etc.) | PRISM |
+|---|---|---|
+| **Assessment** | Synthetic Q&A | Observational: agents interact naturally, judges observe transcripts |
+| **Ground truth** | Author's expected answer | Git repos: the code IS the answer |
+| **Learning test** | Single pass (store→retrieve→score) | Closed-loop: scenario sequences measure improvement over time |
+| **Scoring** | One composite number | 9 CL dimensions × domain × loop closure rate |
+| **Judging** | Single LLM judge | 3 layers: transcripts → dimension judges → meta-judges |
+| **Evolution** | Static question bank | Self-improving: gap analysis evolves scenarios, IRT calibrates difficulty |
+| **Domains** | Domain-agnostic | Tagged by domain for cross-domain comparison |
 
 ## The 9 CL Dimensions
 
-| Dimension | Weight | What It Tests |
-|-----------|--------|---------------|
-| Stability | 20% | Retaining old knowledge when new arrives |
-| Plasticity | 18% | Speed of learning new information |
-| Knowledge Update | 15% | Detecting and resolving contradictions |
-| Consolidation | 12% | Compressing episodes into insights |
-| Temporal | 10% | Knowing when things happened |
-| Transfer | 8% | Knowledge from domain A helping domain B |
-| Epistemic Awareness | 7% | Knowing what you don't know |
-| Intentional Forgetting | 5% | Deliberate pruning and GDPR erasure |
-| Outcome Feedback | 5% | Retrieval improving from reward signals |
+| # | Dimension | Weight |
+|---|-----------|--------|
+| 1 | Stability (Anti-Forgetting) | 0.20 |
+| 2 | Plasticity (New Acquisition) | 0.18 |
+| 3 | Knowledge Update (Contradiction) | 0.15 |
+| 4 | Temporal Reasoning | 0.12 |
+| 5 | Consolidation (Abstraction) | 0.10 |
+| 6 | Epistemic Awareness | 0.08 |
+| 7 | Cross-Domain Transfer | 0.07 |
+| 8 | Intentional Forgetting | 0.05 |
+| 9 | Outcome Feedback | 0.05 |
+
+## 4-Phase Evaluation Loop
+
+```
+Phase 1: Compose → Phase 2: Interact → Phase 3: Observe → Phase 4: Reflect
+     ↑                                                          │
+     └────────────────── Scenario Evolution ────────────────────┘
+```
+
+**Phase 1: Compose** — Build scenarios from git repo anchors with embedded CL challenges
+
+**Phase 2: Interact** — User Simulator runs scenarios against memory systems via MCP
+
+**Phase 3: Observe** — Three-layer judging: transcripts → L2 dimension judges → L3 meta-judges
+
+**Phase 4: Reflect** — Gap analysis, IRT recalibration, scenario evolution
+
+## Key Innovations
+
+### Git-Grounded Anchors
+Anchor scenarios use real git repositories as ground truth. Walk the commit history, ingest diffs, probe for understanding. The code IS the answer — checkout any commit to verify.
+
+### Closed-Loop Testing
+Scenario sequences run S1→S2→S3 without resetting memory. Measures whether the system *actually learns* from its own usage. Loop closure rate is a first-class leaderboard metric.
+
+### Three-Layer Judging
+- **Layer 1**: Raw interaction transcript (observable evidence)
+- **Layer 2**: Per-dimension judges with structured rubrics
+- **Layer 3**: Meta-judges that audit L2 (must use different model family)
+
+### Domain Categories
+Every scenario tagged by domain (code, medical, business, personal, research, creative, legal, operations). Enables "Who's best at medical CL?" comparisons.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Dependencies
 mix deps.get
 
-# Create database
-mix ecto.setup
+# Database
+mix ecto.create
+mix ecto.migrate
 
-# Start the MCP server
+# Run
 mix run --no-halt
 
-# Or add to Claude Code
-claude mcp add prism -- mix run --no-halt
+# Or via MCP
+echo '{"method":"tools/list"}' | mix run --no-halt
 ```
 
-## MCP Tools (29)
+## Stack
 
-Suite Management: `generate_suite`, `validate_suite`, `list_suites`, `get_suite`, `retire_question`, `import_external`
-
-Execution: `run_eval`, `run_matrix`, `get_run_status`, `get_run_results`, `cancel_run`
-
-Judging: `judge_run`, `judge_single`, `override_judgment`
-
-Leaderboard: `get_leaderboard`, `get_leaderboard_history`, `compare_systems`, `get_dimension_leaders`
-
-CL Meta-Loop: `analyze_gaps`, `propose_refinements`, `advance_cycle`, `get_cycle_history`, `detect_saturation`
-
-Configuration: `set_cl_weights`, `register_system`, `list_systems`, `set_judge_model`, `set_generator_model`, `get_config`
-
-## Deploy to Fly.io
-
-```bash
-fly launch --name prism-eval
-fly postgres create --name prism-db
-fly postgres attach prism-db
-fly secrets set ANTHROPIC_API_KEY=sk-ant-...
-fly secrets set OPENAI_API_KEY=sk-...
-fly deploy
-```
+- **Language**: Elixir 1.17+ / OTP 27
+- **Database**: Postgres (via Ecto)
+- **Protocol**: MCP with 30 tools (stdio/SSE)
+- **LLM**: Anthropic Claude, OpenAI GPT-4o, Google Gemini
+- **Deploy**: Fly.io
 
 ## Specification
 
 Full spec: [OS-009-PRISM-SPECIFICATION.md](./OS-009-PRISM-SPECIFICATION.md)
-Published at: [opensentience.org/prism](https://opensentience.org/prism)
 
 ## License
 

@@ -1,438 +1,357 @@
 defmodule Prism.Cycle.Manager do
   @moduledoc """
-  Orchestrates the three-phase CL evaluation loop:
+  Orchestrates the 4-phase PRISM evaluation loop.
 
-  Phase A (Generate): LLM produces benchmark questions from CL specs
-  Phase B (Execute):  Run benchmarks against memory systems via MCP
-  Phase C (Judge):    LLM judges answers, computes CL scores, feeds back
+  ```
+  Phase 1: Compose → Phase 2: Interact → Phase 3: Observe → Phase 4: Reflect
+       ↑                                                          │
+       └────────────────── Scenario Evolution ────────────────────┘
+  ```
 
-  The Manager is itself a continual learner:
-  - Each cycle's gap analysis feeds into the next cycle's generation
-  - Saturated questions are retired
-  - Under-tested dimensions get more questions
+  Each cycle produces scenarios, runs them against memory systems via
+  the User Simulator, judges transcripts through three layers, and
+  evolves the scenario suite for the next cycle.
   """
+
   use GenServer
   require Logger
 
-  alias Prism.Benchmark.CLCategories
-  alias Prism.LLM.Client
+  alias Prism.Scenario.{Composer, Library, Validator}
+  alias Prism.IRT.Calibrator
 
   defstruct [
     :current_cycle,
-    :cl_weights,
-    :generator_model,
-    :judge_model,
-    :registered_systems,
-    :cycle_history
+    :current_suite_id,
+    :status,
+    :phase,
+    :config,
+    started_at: nil,
+    phase_history: []
   ]
+
+  @type phase :: :idle | :composing | :interacting | :observing | :reflecting
+  @type status :: :idle | :running | :paused | :completed | :failed
+
+  # --- Client API ---
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc "Get the current cycle state."
+  @spec state() :: map()
+  def state, do: GenServer.call(__MODULE__, :state)
+
+  @doc "Advance to the next cycle — runs all 4 phases."
+  @spec advance_cycle(keyword()) :: {:ok, map()} | {:error, term()}
+  def advance_cycle(opts \\ []) do
+    GenServer.call(__MODULE__, {:advance_cycle, opts}, 600_000)
+  end
+
+  @doc "Run a specific phase manually."
+  @spec run_phase(phase(), keyword()) :: {:ok, map()} | {:error, term()}
+  def run_phase(phase, opts \\ []) do
+    GenServer.call(__MODULE__, {:run_phase, phase, opts}, 300_000)
+  end
+
+  @doc "Get gap analysis for the current or specified cycle."
+  @spec analyze_gaps(integer() | nil) :: {:ok, map()} | {:error, term()}
+  def analyze_gaps(cycle \\ nil) do
+    GenServer.call(__MODULE__, {:analyze_gaps, cycle})
+  end
+
+  @doc "Get cycle history."
+  @spec history() :: [map()]
+  def history, do: GenServer.call(__MODULE__, :history)
+
+  # --- Server Callbacks ---
+
   @impl true
-  def init(_opts) do
-    state = %__MODULE__{
-      current_cycle: 0,
-      cl_weights: CLCategories.default_weights(),
-      generator_model: System.get_env("GENERATOR_MODEL", "claude-sonnet-4-20250514"),
-      judge_model: System.get_env("JUDGE_MODEL", "gpt-4o"),
-      registered_systems: [],
-      cycle_history: []
+  def init(opts) do
+    config = %{
+      generator_model: Keyword.get(opts, :generator_model, "claude-sonnet-4-20250514"),
+      validator_model: Keyword.get(opts, :validator_model, "gpt-4o"),
+      judge_model: Keyword.get(opts, :judge_model, "claude-sonnet-4-20250514"),
+      meta_judge_model: Keyword.get(opts, :meta_judge_model, "gpt-4o"),
+      simulator_model: Keyword.get(opts, :simulator_model, "claude-sonnet-4-20250514"),
+      target_scenarios: Keyword.get(opts, :target_scenarios, 20),
+      anchor_ratio: Keyword.get(opts, :anchor_ratio, 0.35)
     }
 
-    Logger.info("[CL-Eval] Cycle Manager started. CL dimensions: #{length(CLCategories.ids())}")
+    state = %__MODULE__{
+      current_cycle: 0,
+      status: :idle,
+      phase: :idle,
+      config: config
+    }
+
+    Logger.info("[PRISM] Cycle Manager initialized")
     {:ok, state}
   end
 
-  # ── Phase A: Generate ──────────────────────────────────────────────
-
-  @doc """
-  Generate a new benchmark suite.
-
-  1. Build the generation prompt from CL category specs + gap analysis
-  2. Call the LLM to generate questions + expected answers + rubrics
-  3. Run a second LLM call to validate CL coverage of each question
-  4. Store validated suite in Postgres
-  """
-  def generate_suite(opts \\ %{}) do
-    GenServer.call(__MODULE__, {:generate_suite, opts}, :infinity)
+  @impl true
+  def handle_call(:state, _from, state) do
+    {:reply, Map.from_struct(state), state}
   end
 
   @impl true
-  def handle_call({:generate_suite, opts}, _from, state) do
-    target = Map.get(opts, :target_questions, 200)
-    cycle = state.current_cycle + 1
+  def handle_call({:advance_cycle, opts}, _from, state) do
+    if state.status == :running do
+      {:reply, {:error, :cycle_already_running}, state}
+    else
+      new_cycle = state.current_cycle + 1
+      Logger.info("[PRISM] ═══════ Starting Cycle #{new_cycle} ═══════")
 
-    Logger.info("[CL-Eval] Phase A: Generating suite for cycle #{cycle} (#{target} questions)")
+      state = %{
+        state
+        | current_cycle: new_cycle,
+          status: :running,
+          started_at: DateTime.utc_now()
+      }
 
-    # Build generation prompt incorporating gap feedback from prior cycle
-    prompt = build_generation_prompt(state, target)
+      case run_full_cycle(state, opts) do
+        {:ok, result, final_state} ->
+          Logger.info("[PRISM] ═══════ Cycle #{new_cycle} Complete ═══════")
+          final_state = %{final_state | status: :completed, phase: :idle}
+          {:reply, {:ok, result}, final_state}
 
-    # Step 1: Generate questions via LLM
-    case Client.generate(state.generator_model, prompt) do
-      {:ok, raw_questions} ->
-        # Step 2: Parse and validate structure
-        questions = parse_generated_questions(raw_questions)
+        {:error, reason, failed_state} ->
+          Logger.error("[PRISM] Cycle #{new_cycle} failed: #{inspect(reason)}")
+          failed_state = %{failed_state | status: :failed}
+          {:reply, {:error, reason}, failed_state}
+      end
+    end
+  end
 
-        # Step 3: CL coverage validation (different model to avoid bias)
-        validated = validate_cl_coverage(questions, state.judge_model)
-
-        # Step 4: Compute coverage scores
-        coverage = compute_coverage_scores(validated)
-
-        # Step 5: Store in database
-        suite = store_suite(cycle, validated, coverage, state)
-
-        emit_telemetry(:phase_a, :generate, %{
-          cycle: cycle,
-          total_generated: length(questions),
-          total_validated: length(validated),
-          coverage: coverage
-        })
-
-        {:reply, {:ok, suite}, %{state | current_cycle: cycle}}
+  @impl true
+  def handle_call({:run_phase, phase, opts}, _from, state) do
+    case execute_phase(phase, state, opts) do
+      {:ok, result, new_state} ->
+        {:reply, {:ok, result}, new_state}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
   end
 
-  # ── Phase B: Execute ───────────────────────────────────────────────
-
-  @doc """
-  Run a benchmark suite against one or more memory systems.
-
-  For each system:
-  1. Reset the memory system
-  2. Ingest any required context per question
-  3. Query the system with the question
-  4. Record the answer, retrieval context, and timing
-  """
-  def run_eval(suite_id, system, opts \\ %{}) do
-    GenServer.call(__MODULE__, {:run_eval, suite_id, system, opts}, :infinity)
-  end
-
-  def run_matrix(suite_id, systems, models) do
-    GenServer.call(__MODULE__, {:run_matrix, suite_id, systems, models}, :infinity)
-  end
-
   @impl true
-  def handle_call({:run_eval, suite_id, system, opts}, _from, state) do
-    Logger.info("[CL-Eval] Phase B: Running suite #{suite_id} against #{system}")
-
-    # Load suite questions
-    questions = load_suite_questions(suite_id)
-
-    # Connect to memory system via MCP
-    {:ok, adapter} = connect_system(system)
-
-    # Execute each question
-    results =
-      questions
-      |> Enum.map(fn q ->
-        execute_single_question(adapter, q, opts)
-      end)
-
-    # Store results
-    run = store_run_results(suite_id, system, results, state)
-
-    emit_telemetry(:phase_b, :execute, %{
-      suite_id: suite_id,
-      system: system,
-      total_questions: length(questions),
-      mean_retrieval_ms: mean_timing(results, :retrieval_ms)
-    })
-
-    {:reply, {:ok, run}, state}
-  end
-
-  @impl true
-  def handle_call({:run_matrix, suite_id, systems, models}, _from, state) do
-    Logger.info("[CL-Eval] Phase B: Matrix run — #{length(systems)} systems × #{length(models)} models")
-
-    runs =
-      for system <- systems, model <- models do
-        {:ok, run} = do_run_eval(suite_id, system, %{llm_backend: model})
-        run
-      end
-
-    {:reply, {:ok, runs}, state}
-  end
-
-  # ── Phase C: Judge + CL Score ──────────────────────────────────────
-
-  @doc """
-  Judge all answers in a run using the LLM judge.
-
-  1. For each (question, answer) pair, ask the judge to score 0-1
-  2. Aggregate scores by CL dimension using the question's CL tags
-  3. Compute the 9-dimensional weighted CL score
-  4. Update the leaderboard
-  """
-  def judge_run(run_id) do
-    GenServer.call(__MODULE__, {:judge_run, run_id}, :infinity)
-  end
-
-  @impl true
-  def handle_call({:judge_run, run_id}, _from, state) do
-    Logger.info("[CL-Eval] Phase C: Judging run #{run_id}")
-
-    # Load run results
-    results = load_run_results(run_id)
-
-    # Judge each answer
-    judged =
-      results
-      |> Enum.map(fn result ->
-        judge_single_answer(result, state.judge_model)
-      end)
-
-    # Aggregate by CL dimension
-    cl_scores = aggregate_cl_scores(judged, state.cl_weights)
-
-    # Update leaderboard
-    update_leaderboard(run_id, cl_scores, state)
-
-    emit_telemetry(:phase_c, :judge, %{
-      run_id: run_id,
-      cl_scores: cl_scores,
-      weighted_total: compute_weighted_total(cl_scores, state.cl_weights)
-    })
-
-    {:reply, {:ok, cl_scores}, state}
-  end
-
-  # ── CL Meta-Loop ──────────────────────────────────────────────────
-
-  @doc """
-  Analyze gaps in the current cycle and prepare feedback for the next.
-
-  1. Which CL dimensions had the fewest questions?
-  2. Which questions did ALL systems ace? (saturation → retire)
-  3. Which questions did NO system answer? (too hard → adjust)
-  4. Which dimensions showed the least variance? (not discriminating)
-  """
-  def analyze_gaps(cycle) do
-    GenServer.call(__MODULE__, {:analyze_gaps, cycle})
-  end
-
-  def advance_cycle do
-    GenServer.call(__MODULE__, :advance_cycle, :infinity)
-  end
-
-  @impl true
-  def handle_call({:analyze_gaps, cycle}, _from, state) do
+  def handle_call({:analyze_gaps, cycle_num}, _from, state) do
+    cycle = cycle_num || state.current_cycle
     gaps = do_gap_analysis(cycle)
     {:reply, {:ok, gaps}, state}
   end
 
   @impl true
-  def handle_call(:advance_cycle, _from, state) do
-    # Run gap analysis on current cycle
-    {:ok, gaps} = do_gap_analysis(state.current_cycle)
+  def handle_call(:history, _from, state) do
+    {:reply, state.phase_history, state}
+  end
 
-    # Record the feedback
-    feedback = %{
-      from_cycle: state.current_cycle,
-      to_cycle: state.current_cycle + 1,
-      gap_analysis: gaps,
+  # --- Phase Execution ---
+
+  defp run_full_cycle(state, opts) do
+    with {:ok, compose_result, state} <- execute_phase(:composing, state, opts),
+         {:ok, interact_result, state} <- execute_phase(:interacting, state, opts),
+         {:ok, observe_result, state} <- execute_phase(:observing, state, opts),
+         {:ok, reflect_result, state} <- execute_phase(:reflecting, state, opts) do
+      result = %{
+        cycle: state.current_cycle,
+        compose: compose_result,
+        interact: interact_result,
+        observe: observe_result,
+        reflect: reflect_result
+      }
+
+      {:ok, result, state}
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp execute_phase(:composing, state, opts) do
+    Logger.info("[PRISM] Phase 1: Compose")
+    state = %{state | phase: :composing}
+    start = System.monotonic_time(:millisecond)
+
+    # Get gap analysis from prior cycle
+    prior_gaps =
+      if state.current_cycle > 1,
+        do: do_gap_analysis(state.current_cycle - 1),
+        else: %{gaps: []}
+
+    focus_dims = extract_focus_dimensions(prior_gaps)
+    focus_domains = extract_focus_domains(prior_gaps)
+
+    result =
+      case Keyword.get(opts, :repo_anchor) do
+        nil ->
+          scenarios = Library.list()
+          coverage = Validator.validate_coverage(scenarios)
+          %{scenarios: length(scenarios), coverage: coverage, source: :library}
+
+        anchor ->
+          case Composer.compose(anchor,
+                 count: state.config.target_scenarios,
+                 focus_dimensions: focus_dims,
+                 focus_domains: focus_domains,
+                 generator_model: state.config.generator_model,
+                 validator_model: state.config.validator_model
+               ) do
+            {:ok, %{status: "prompt_ready"} = prompt_result} ->
+              %{prompt: prompt_result, source: :prompt_ready}
+
+            {:error, reason} ->
+              %{error: reason, source: :failed}
+          end
+      end
+
+    duration = System.monotonic_time(:millisecond) - start
+    emit_telemetry(:compose, duration)
+    state = record_phase(state, :composing, result, duration)
+    {:ok, result, state}
+  end
+
+  defp execute_phase(:interacting, state, opts) do
+    Logger.info("[PRISM] Phase 2: Interact")
+    state = %{state | phase: :interacting}
+    start = System.monotonic_time(:millisecond)
+
+    systems = Keyword.get(opts, :systems, [])
+    llm_backend = Keyword.get(opts, :llm_backend, state.config.simulator_model)
+    scenarios = Library.list()
+
+    results =
+      for system_id <- systems, scenario <- scenarios do
+        case Prism.Simulator.Engine.interact(scenario, %{}, system_id, llm_backend) do
+          {:ok, transcript} -> {:ok, transcript}
+          {:error, reason} -> {:error, {system_id, scenario.id, reason}}
+        end
+      end
+
+    successes = Enum.count(results, &match?({:ok, _}, &1))
+    failures = Enum.count(results, &match?({:error, _}, &1))
+
+    result = %{
+      total_interactions: length(results),
+      successes: successes,
+      failures: failures,
+      systems: length(systems)
+    }
+
+    duration = System.monotonic_time(:millisecond) - start
+    emit_telemetry(:interact, duration)
+    state = record_phase(state, :interacting, result, duration)
+    {:ok, result, state}
+  end
+
+  defp execute_phase(:observing, state, opts) do
+    Logger.info("[PRISM] Phase 3: Observe (3-layer judging)")
+    state = %{state | phase: :observing}
+    start = System.monotonic_time(:millisecond)
+
+    judge_model = Keyword.get(opts, :judge_model, state.config.judge_model)
+    meta_judge_model = Keyword.get(opts, :meta_judge_model, state.config.meta_judge_model)
+
+    # TODO: Load transcripts from DB for this cycle's run, judge each one
+    result = %{
+      judge_model: judge_model,
+      meta_judge_model: meta_judge_model,
+      l2_judgments: 0,
+      l3_meta_judgments: 0,
+      accept_rate: nil,
+      flag_rate: nil,
+      reject_rate: nil
+    }
+
+    duration = System.monotonic_time(:millisecond) - start
+    emit_telemetry(:observe, duration)
+    state = record_phase(state, :observing, result, duration)
+    {:ok, result, state}
+  end
+
+  defp execute_phase(:reflecting, state, _opts) do
+    Logger.info("[PRISM] Phase 4: Reflect")
+    state = %{state | phase: :reflecting}
+    start = System.monotonic_time(:millisecond)
+
+    gaps = do_gap_analysis(state.current_cycle)
+
+    # IRT recalibration (with empty observations for now)
+    Calibrator.recalibrate([])
+
+    result = %{
+      gaps: gaps,
+      irt_recalibrated: true,
+      cycle: state.current_cycle
+    }
+
+    duration = System.monotonic_time(:millisecond) - start
+    emit_telemetry(:reflect, duration)
+    state = record_phase(state, :reflecting, result, duration)
+    {:ok, result, state}
+  end
+
+  defp execute_phase(unknown, _state, _opts) do
+    {:error, {:unknown_phase, unknown}}
+  end
+
+  # --- Gap Analysis ---
+
+  defp do_gap_analysis(_cycle) do
+    scenarios = Library.list()
+    coverage = Validator.validate_coverage(scenarios)
+
+    %{
+      dimension_coverage: coverage.dimension_coverage,
+      domain_coverage: coverage.domain_coverage,
+      gaps: coverage.gaps,
+      overall_adequate: coverage.overall_adequate,
+      recommendations: generate_recommendations(coverage.gaps)
+    }
+  end
+
+  defp generate_recommendations(gaps) do
+    Enum.map(gaps, fn gap ->
+      %{
+        type: gap.type,
+        action: gap.recommendation,
+        priority: if(gap.type == :dimension_gap, do: :high, else: :medium)
+      }
+    end)
+  end
+
+  defp extract_focus_dimensions(%{gaps: gaps}) do
+    gaps
+    |> Enum.filter(&(&1.type == :dimension_gap))
+    |> Enum.map(& &1.dimension)
+  end
+
+  defp extract_focus_dimensions(_), do: []
+
+  defp extract_focus_domains(%{gaps: gaps}) do
+    gaps
+    |> Enum.filter(&(&1.type == :domain_gap))
+    |> Enum.map(& &1.domain)
+  end
+
+  defp extract_focus_domains(_), do: []
+
+  defp record_phase(state, phase, result, duration_ms) do
+    entry = %{
+      phase: phase,
+      cycle: state.current_cycle,
+      result: result,
+      duration_ms: duration_ms,
       timestamp: DateTime.utc_now()
     }
 
-    new_history = [feedback | state.cycle_history]
-
-    Logger.info("""
-    [CL-Eval] Advancing to cycle #{state.current_cycle + 1}
-    Gap analysis: #{inspect(gaps.under_tested_dims)}
-    Saturated questions: #{length(gaps.saturated_questions)}
-    """)
-
-    {:reply, {:ok, feedback}, %{state | cycle_history: new_history}}
+    %{state | phase_history: [entry | state.phase_history]}
   end
 
-  # ── Private helpers ────────────────────────────────────────────────
-
-  defp build_generation_prompt(state, target_count) do
-    categories = CLCategories.all()
-    gaps = if state.current_cycle > 0, do: get_prior_gaps(state), else: nil
-
-    """
-    You are a benchmark designer for Continual Learning evaluation of AI agent memory systems.
-
-    Generate #{target_count} benchmark questions that test the following 9 CL dimensions:
-
-    #{format_categories(categories)}
-
-    #{if gaps, do: format_gap_feedback(gaps), else: ""}
-
-    For each question, provide:
-    1. question_text: The question to ask the memory system
-    2. expected_answer: The correct/ideal answer
-    3. rubric: Scoring criteria (0-1 scale) for the LLM judge
-    4. cl_categories: Which CL dimensions this tests (with relative weights)
-    5. difficulty: 1-5 scale
-    6. requires_state: Whether prior ingestion is needed
-    7. ingestion_context: If requires_state, what to ingest first (as a sequence of sessions)
-
-    Target distribution across CL dimensions (by weight):
-    #{format_target_distribution(state.cl_weights)}
-
-    Respond in JSON array format.
-    """
-  end
-
-  defp validate_cl_coverage(questions, judge_model) do
-    # Second LLM pass to validate each question's CL tagging
-    prompt = """
-    You are a CL evaluation expert. For each question below, verify:
-    1. Does it actually test the claimed CL dimensions?
-    2. Is the difficulty rating accurate?
-    3. Is the rubric clear and unambiguous?
-    4. Is the expected answer correct?
-
-    Score each question's CL coverage quality 0-1.
-    Reject questions scoring below 0.6.
-
-    Questions: #{Jason.encode!(questions)}
-    """
-
-    case Client.generate(judge_model, prompt) do
-      {:ok, validation} -> filter_validated(questions, validation)
-      {:error, _} -> questions  # Fallback: keep all if validation fails
-    end
-  end
-
-  defp compute_coverage_scores(questions) do
-    # For each CL dimension, count questions and compute coverage density
-    CLCategories.ids()
-    |> Map.new(fn dim ->
-      matching = Enum.filter(questions, fn q ->
-        q.cl_categories |> Map.keys() |> Enum.member?(dim)
-      end)
-
-      {dim, %{
-        count: length(matching),
-        mean_difficulty: mean_difficulty(matching),
-        weight_coverage: sum_weights(matching, dim)
-      }}
-    end)
-  end
-
-  defp aggregate_cl_scores(judged_results, cl_weights) do
-    # For each CL dimension, aggregate the judged scores
-    CLCategories.ids()
-    |> Map.new(fn dim ->
-      relevant = Enum.filter(judged_results, fn r ->
-        Map.has_key?(r.cl_dimensions, dim)
-      end)
-
-      if relevant == [] do
-        {dim, nil}
-      else
-        scores = Enum.map(relevant, fn r ->
-          r.judge_score * Map.get(r.cl_dimensions, dim, 0)
-        end)
-        {dim, Enum.sum(scores) / length(scores)}
-      end
-    end)
-  end
-
-  defp compute_weighted_total(cl_scores, weights) do
-    Enum.reduce(cl_scores, 0.0, fn {dim, score}, acc ->
-      if score, do: acc + score * Map.get(weights, dim, 0), else: acc
-    end)
-  end
-
-  defp do_gap_analysis(cycle) do
-    # Analyze the current cycle for gaps
-    %{
-      under_tested_dims: find_under_tested_dims(cycle),
-      saturated_questions: find_saturated_questions(cycle),
-      too_hard_questions: find_too_hard_questions(cycle),
-      low_variance_dims: find_low_variance_dims(cycle),
-      recommended_adjustments: generate_recommendations(cycle)
-    }
-  end
-
-  defp execute_single_question(adapter, question, _opts) do
-    # 1. Ingest context if needed
-    ingestion_ms =
-      if question.requires_state do
-        {time, _} = :timer.tc(fn ->
-          adapter.ingest(question.ingestion_context)
-        end)
-        div(time, 1000)
-      else
-        0
-      end
-
-    # 2. Query
-    {retrieval_time, {answer, context}} = :timer.tc(fn ->
-      adapter.query(question.question_text)
-    end)
-
-    %{
-      question_id: question.id,
-      raw_answer: answer,
-      retrieval_context: context,
-      ingestion_ms: ingestion_ms,
-      retrieval_ms: div(retrieval_time, 1000),
-      answer_ms: div(retrieval_time, 1000)
-    }
-  end
-
-  defp judge_single_answer(result, judge_model) do
-    prompt = """
-    You are judging an answer from an AI memory system.
-
-    Question: #{result.question.question_text}
-    Expected Answer: #{result.question.expected_answer}
-    Actual Answer: #{result.raw_answer}
-    Scoring Rubric: #{Jason.encode!(result.question.rubric)}
-
-    Score the answer 0.0 to 1.0 based on the rubric.
-    Explain your reasoning briefly.
-    Also score each CL dimension that this question tests.
-
-    Respond in JSON: {"score": 0.X, "explanation": "...", "cl_dimensions": {"dim": score}}
-    """
-
-    case Client.generate(judge_model, prompt) do
-      {:ok, judgment} -> Map.merge(result, parse_judgment(judgment))
-      {:error, _} -> Map.put(result, :judge_score, 0.0)
-    end
-  end
-
-  defp emit_telemetry(phase, action, measurements) do
+  defp emit_telemetry(phase, duration) do
     :telemetry.execute(
-      [:prism, phase, action],
-      measurements,
-      %{timestamp: DateTime.utc_now()}
+      [:prism, :phase, phase, :duration],
+      %{duration: duration},
+      %{phase: phase}
     )
   end
-
-  # Placeholder implementations for DB operations
-  defp store_suite(_cycle, questions, coverage, _state), do: %{id: UUID.uuid4(), questions: questions, coverage: coverage}
-  defp store_run_results(_suite_id, _system, results, _state), do: %{id: UUID.uuid4(), results: results}
-  defp load_suite_questions(_suite_id), do: []
-  defp load_run_results(_run_id), do: []
-  defp connect_system(_system), do: {:ok, %{}}
-  defp update_leaderboard(_run_id, _scores, _state), do: :ok
-  defp get_prior_gaps(_state), do: nil
-  defp find_under_tested_dims(_cycle), do: []
-  defp find_saturated_questions(_cycle), do: []
-  defp find_too_hard_questions(_cycle), do: []
-  defp find_low_variance_dims(_cycle), do: []
-  defp generate_recommendations(_cycle), do: []
-  defp do_run_eval(suite_id, system, opts), do: {:ok, %{id: UUID.uuid4()}}
-  defp format_categories(cats), do: Enum.map_join(cats, "\n", &"- #{&1.name} (#{&1.weight}): #{&1.description}")
-  defp format_gap_feedback(gaps), do: "Previous cycle gaps: #{inspect(gaps)}"
-  defp format_target_distribution(weights), do: Enum.map_join(weights, "\n", fn {k, v} -> "  #{k}: #{v}" end)
-  defp parse_generated_questions(raw), do: []
-  defp filter_validated(questions, _validation), do: questions
-  defp mean_difficulty(questions), do: 3.0
-  defp sum_weights(questions, _dim), do: 1.0
-  defp mean_timing(results, _field), do: 0
-  defp parse_judgment(_raw), do: %{judge_score: 0.5, cl_dimensions: %{}}
 end

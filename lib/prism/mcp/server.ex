@@ -1,16 +1,16 @@
 defmodule Prism.MCP.Server do
   @moduledoc """
-  MCP (Model Context Protocol) server exposing 29 tools for the CL evaluation engine.
+  MCP (Model Context Protocol) server exposing 30 tools for the PRISM evaluation engine.
 
   Transport: stdio (for Claude Code, Cursor, etc.) or SSE (for web clients).
 
   Tool categories:
-  - Suite Management (6 tools)
-  - Execution (5 tools)
-  - Judging (3 tools)
+  - Scenario Management (6 tools)
+  - Interaction (6 tools)
+  - Judging (5 tools)
   - Leaderboard (4 tools)
-  - CL Meta-Loop (5 tools)
-  - Configuration (6 tools)
+  - Meta-Loop & Calibration (5 tools)
+  - Configuration (4 tools)
   """
   use GenServer
   require Logger
@@ -18,358 +18,685 @@ defmodule Prism.MCP.Server do
   alias Prism.Cycle.Manager
 
   @tools [
-    # ── Suite Management ──
+    # ── Scenario Management (6) ──
     %{
-      name: "generate_suite",
-      description: "Generate a new benchmark suite. LLM produces questions from CL category specs, validates coverage, stores in Postgres.",
+      name: "compose_scenarios",
+      description:
+        "Phase 1: Build scenarios from repo anchors + CL specs. Produces multi-session interaction scripts with embedded CL challenges and verifiable ground truth.",
       input_schema: %{
         type: "object",
         properties: %{
-          target_questions: %{type: "integer", description: "Number of questions to generate (default 200)", default: 200},
-          cycle: %{type: "integer", description: "Cycle number (auto-increments if omitted)"},
-          focus_dimensions: %{type: "array", items: %{type: "string"}, description: "CL dimensions to emphasize (e.g. ['consolidation', 'transfer'])"}
+          repo_anchor_id: %{
+            type: "string",
+            description: "UUID of the repo anchor to compose from"
+          },
+          count: %{
+            type: "integer",
+            description: "Number of scenarios to generate (default 10)",
+            default: 10
+          },
+          focus_dimensions: %{
+            type: "array",
+            items: %{type: "string"},
+            description: "CL dimensions to emphasize"
+          },
+          focus_domains: %{
+            type: "array",
+            items: %{type: "string"},
+            description: "Domains to weight toward"
+          }
         }
       }
     },
     %{
-      name: "validate_suite",
-      description: "Run CL coverage judge on a draft suite. Tags each question with CL categories, scores difficulty, rejects low-coverage items.",
+      name: "validate_scenarios",
+      description:
+        "Run CL coverage validation on scenarios. Checks dimension and domain coverage, validates ground truth.",
       input_schema: %{
         type: "object",
         properties: %{
-          suite_id: %{type: "string", description: "UUID of the suite to validate"}
+          scenario_ids: %{
+            type: "array",
+            items: %{type: "string"},
+            description: "UUIDs of scenarios to validate"
+          }
         },
-        required: ["suite_id"]
+        required: ["scenario_ids"]
       }
     },
     %{
-      name: "list_suites",
-      description: "List all benchmark suites with status, coverage scores, and question counts.",
-      input_schema: %{type: "object", properties: %{status: %{type: "string", enum: ["draft", "validated", "active", "retired"]}}}
-    },
-    %{
-      name: "get_suite",
-      description: "Get full details of a suite including all questions, CL tags, and coverage analysis.",
-      input_schema: %{type: "object", properties: %{suite_id: %{type: "string"}}, required: ["suite_id"]}
-    },
-    %{
-      name: "retire_question",
-      description: "Mark a question as retired. Reasons: 'saturated' (all systems ace it), 'ambiguous', 'too_hard' (no system answers it).",
+      name: "list_scenarios",
+      description: "List scenarios with filters for kind, domain, dimension, and difficulty.",
       input_schema: %{
         type: "object",
         properties: %{
-          question_id: %{type: "string"},
+          kind: %{type: "string", enum: ["anchor", "frontier"]},
+          domain: %{
+            type: "string",
+            enum: [
+              "code",
+              "medical",
+              "business",
+              "personal",
+              "research",
+              "creative",
+              "legal",
+              "operations"
+            ]
+          },
+          dimension: %{type: "string"},
+          difficulty: %{type: "integer", minimum: 1, maximum: 5}
+        }
+      }
+    },
+    %{
+      name: "get_scenario",
+      description: "Full scenario details including sessions, CL challenges, and IRT parameters.",
+      input_schema: %{
+        type: "object",
+        properties: %{scenario_id: %{type: "string", description: "UUID of the scenario"}},
+        required: ["scenario_id"]
+      }
+    },
+    %{
+      name: "retire_scenario",
+      description: "Retire a scenario with a reason. Anchor scenarios cannot be retired.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          scenario_id: %{type: "string"},
           reason: %{type: "string", enum: ["saturated", "ambiguous", "too_hard", "duplicate"]}
         },
-        required: ["question_id", "reason"]
+        required: ["scenario_id", "reason"]
       }
     },
     %{
       name: "import_external",
-      description: "Import questions from external benchmarks (BEAM, LongMemEval, MemoryAgentBench) with automatic CL category tagging.",
+      description:
+        "Import scenarios from external benchmarks (BEAM, LongMemEval, etc.) with CL tagging and domain assignment.",
       input_schema: %{
         type: "object",
         properties: %{
-          source: %{type: "string", enum: ["beam", "longmemeval", "memoryagentbench", "memorybench", "custom"]},
-          file_path: %{type: "string", description: "Path to benchmark data file"},
-          max_questions: %{type: "integer", default: 100}
+          source: %{type: "string", description: "Benchmark name (e.g., 'BEAM', 'LongMemEval')"},
+          file_path: %{type: "string", description: "Path to the benchmark data file"},
+          domain: %{type: "string", description: "Domain to assign to imported scenarios"}
         },
-        required: ["source"]
+        required: ["source", "file_path"]
       }
     },
 
-    # ── Execution ──
+    # ── Interaction (6) ──
     %{
-      name: "run_eval",
-      description: "Execute a benchmark suite against a specific memory system via MCP. Records answers, retrieval context, and timing.",
+      name: "run_interaction",
+      description:
+        "Execute one scenario against one memory system via the User Simulator. Produces a full interaction transcript.",
       input_schema: %{
         type: "object",
         properties: %{
-          suite_id: %{type: "string"},
-          system: %{type: "string", description: "Registered memory system name"},
-          llm_backend: %{type: "string", description: "LLM model for the memory system to use"}
+          scenario_id: %{type: "string"},
+          system_id: %{type: "string"},
+          llm_backend: %{type: "string", description: "LLM model powering the memory system"}
         },
-        required: ["suite_id", "system"]
+        required: ["scenario_id", "system_id", "llm_backend"]
+      }
+    },
+    %{
+      name: "run_sequence",
+      description:
+        "Execute a scenario sequence WITHOUT resetting memory between passes. Tests closed-loop learning.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          sequence_id: %{type: "string"},
+          system_id: %{type: "string"},
+          llm_backend: %{type: "string"}
+        },
+        required: ["sequence_id", "system_id", "llm_backend"]
       }
     },
     %{
       name: "run_matrix",
-      description: "Run a suite against multiple systems × models. Full evaluation matrix.",
+      description: "Full evaluation matrix: N systems × M models × all scenarios in a suite.",
       input_schema: %{
         type: "object",
         properties: %{
           suite_id: %{type: "string"},
-          systems: %{type: "array", items: %{type: "string"}},
-          models: %{type: "array", items: %{type: "string"}}
+          systems: %{
+            type: "array",
+            items: %{type: "string"},
+            description: "System IDs to evaluate"
+          },
+          models: %{type: "array", items: %{type: "string"}, description: "LLM backends to test"}
         },
-        required: ["suite_id", "systems"]
+        required: ["suite_id", "systems", "models"]
       }
     },
     %{
       name: "get_run_status",
-      description: "Check the status of an in-progress evaluation run.",
-      input_schema: %{type: "object", properties: %{run_id: %{type: "string"}}, required: ["run_id"]}
+      description: "Check status of an in-progress run.",
+      input_schema: %{
+        type: "object",
+        properties: %{run_id: %{type: "string"}},
+        required: ["run_id"]
+      }
     },
     %{
-      name: "get_run_results",
-      description: "Get detailed results for a completed run including per-question scores and traces.",
-      input_schema: %{type: "object", properties: %{run_id: %{type: "string"}}, required: ["run_id"]}
+      name: "get_transcript",
+      description: "Full interaction transcript with tool calls, retrieval contexts, and timing.",
+      input_schema: %{
+        type: "object",
+        properties: %{transcript_id: %{type: "string"}},
+        required: ["transcript_id"]
+      }
     },
     %{
       name: "cancel_run",
-      description: "Cancel an in-progress evaluation run.",
-      input_schema: %{type: "object", properties: %{run_id: %{type: "string"}}, required: ["run_id"]}
-    },
-
-    # ── Judging ──
-    %{
-      name: "judge_run",
-      description: "LLM judges all answers in a run. Scores each answer 0-1 against the rubric, then aggregates into 9-dimensional CL scores.",
-      input_schema: %{type: "object", properties: %{run_id: %{type: "string"}}, required: ["run_id"]}
-    },
-    %{
-      name: "judge_single",
-      description: "Judge a single answer. Useful for debugging or spot-checking.",
+      description: "Cancel an in-progress run.",
       input_schema: %{
         type: "object",
-        properties: %{result_id: %{type: "string"}},
-        required: ["result_id"]
+        properties: %{run_id: %{type: "string"}},
+        required: ["run_id"]
+      }
+    },
+
+    # ── Judging (5) ──
+    %{
+      name: "judge_transcript",
+      description: "Layer 2: Judge all 9 CL dimensions for one transcript.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          transcript_id: %{type: "string"},
+          judge_model: %{type: "string", description: "LLM model for judging"}
+        },
+        required: ["transcript_id"]
+      }
+    },
+    %{
+      name: "judge_dimension",
+      description: "Layer 2: Judge one specific dimension for a transcript (debugging/manual).",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          transcript_id: %{type: "string"},
+          dimension: %{type: "string"},
+          judge_model: %{type: "string"}
+        },
+        required: ["transcript_id", "dimension"]
+      }
+    },
+    %{
+      name: "meta_judge",
+      description:
+        "Layer 3: Meta-judge one L2 judgment. Evaluates consistency, evidence grounding, rubric compliance.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          judgment_id: %{type: "string"},
+          meta_judge_model: %{
+            type: "string",
+            description: "MUST be different model family than L2 judge"
+          }
+        },
+        required: ["judgment_id"]
+      }
+    },
+    %{
+      name: "meta_judge_batch",
+      description: "Layer 3: Meta-judge all L2 judgments for a run.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          run_id: %{type: "string"},
+          meta_judge_model: %{type: "string"}
+        },
+        required: ["run_id"]
       }
     },
     %{
       name: "override_judgment",
-      description: "Human override of an LLM judgment. Records the override with reason for audit.",
+      description: "Human override of a judgment with audit trail.",
       input_schema: %{
         type: "object",
         properties: %{
-          result_id: %{type: "string"},
+          judgment_id: %{type: "string"},
           new_score: %{type: "number", minimum: 0, maximum: 1},
           reason: %{type: "string"}
         },
-        required: ["result_id", "new_score", "reason"]
+        required: ["judgment_id", "new_score", "reason"]
       }
     },
 
-    # ── Leaderboard ──
+    # ── Leaderboard (4) ──
     %{
       name: "get_leaderboard",
-      description: "Current leaderboard. Filterable by CL dimension, model, memory system, and cycle.",
+      description:
+        "Current rankings with optional domain filter. Shows 9 dimensions + loop closure rate.",
       input_schema: %{
         type: "object",
         properties: %{
           cycle: %{type: "integer"},
-          dimension: %{type: "string", description: "Filter by CL dimension"},
-          system: %{type: "string"},
-          limit: %{type: "integer", default: 20}
+          dimension: %{type: "string", description: "Sort by this dimension"},
+          domain: %{type: "string", description: "Filter by domain (nil = all domains)"},
+          system: %{type: "string", description: "Filter to one system"},
+          limit: %{type: "integer", default: 50}
         }
       }
     },
     %{
       name: "get_leaderboard_history",
-      description: "Leaderboard scores over time (per cycle) for trend analysis. See how systems improve.",
+      description: "Scores over time for trend analysis.",
       input_schema: %{
         type: "object",
         properties: %{
           system: %{type: "string"},
           from_cycle: %{type: "integer"},
-          to_cycle: %{type: "integer"}
-        }
+          to_cycle: %{type: "integer"},
+          domain: %{type: "string"}
+        },
+        required: ["system"]
       }
     },
     %{
       name: "compare_systems",
-      description: "Head-to-head comparison of two memory systems across all 9 CL dimensions.",
+      description:
+        "Head-to-head comparison across all 9 dimensions. Supports domain-specific comparison.",
       input_schema: %{
         type: "object",
         properties: %{
           system_a: %{type: "string"},
           system_b: %{type: "string"},
-          cycle: %{type: "integer"}
+          cycle: %{type: "integer"},
+          domain: %{type: "string"}
         },
         required: ["system_a", "system_b"]
       }
     },
     %{
       name: "get_dimension_leaders",
-      description: "Who's best at each CL dimension? Returns the top system per dimension.",
-      input_schema: %{type: "object", properties: %{cycle: %{type: "integer"}}}
+      description: "Top system per CL dimension. Supports domain filter.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          cycle: %{type: "integer"},
+          domain: %{type: "string"}
+        }
+      }
     },
 
-    # ── CL Meta-Loop ──
+    # ── Meta-Loop & Calibration (5) ──
     %{
       name: "analyze_gaps",
-      description: "Run gap analysis: which CL dims are under-tested? Which questions are saturated? Which are too hard?",
-      input_schema: %{type: "object", properties: %{cycle: %{type: "integer"}}}
+      description:
+        "Gap analysis: under-tested dimensions, saturated scenarios, low-variance dims, domain gaps.",
+      input_schema: %{
+        type: "object",
+        properties: %{cycle: %{type: "integer"}}
+      }
     },
     %{
-      name: "propose_refinements",
-      description: "LLM proposes refinements to CL category specs and question distribution based on gap analysis.",
-      input_schema: %{type: "object", properties: %{cycle: %{type: "integer"}}}
+      name: "evolve_scenarios",
+      description:
+        "Apply gap analysis: retire saturated scenarios, extend frontiers, fork for coverage, promote stable frontiers to anchor.",
+      input_schema: %{
+        type: "object",
+        properties: %{
+          cycle: %{type: "integer"},
+          recommendations: %{type: "array", items: %{type: "object"}}
+        }
+      }
     },
     %{
       name: "advance_cycle",
-      description: "Move to the next cycle. Generates harder questions targeting weak dimensions, retires saturated ones.",
+      description:
+        "Advance to next cycle: runs all 4 phases (Compose → Interact → Observe → Reflect).",
+      input_schema: %{type: "object", properties: %{}}
+    },
+    %{
+      name: "calibrate_irt",
+      description:
+        "Recalibrate IRT parameters (difficulty, discrimination) from accumulated cycle data.",
       input_schema: %{type: "object", properties: %{}}
     },
     %{
       name: "get_cycle_history",
-      description: "Full history of cycles: feedback, refinements, improvements, and gap closure over time.",
+      description:
+        "Full history of cycles: gap analyses, scenario evolution, IRT recalibrations.",
       input_schema: %{type: "object", properties: %{}}
     },
-    %{
-      name: "detect_saturation",
-      description: "Find questions that all systems ace (>0.95 across all runs). Candidates for retirement.",
-      input_schema: %{type: "object", properties: %{threshold: %{type: "number", default: 0.95}}}
-    },
 
-    # ── Configuration ──
+    # ── Configuration (4) ──
     %{
       name: "set_cl_weights",
-      description: "Update the 9-dimensional CL weight vector. Must sum to 1.0.",
+      description:
+        "Update the 9-dimension weight vector. Must sum to 1.0. Requires governance approval during active cycles.",
       input_schema: %{
         type: "object",
         properties: %{
-          weights: %{type: "object", description: "Map of dimension_id → weight (0-1)"}
+          weights: %{type: "object", description: "Map of dimension → weight (must sum to 1.0)"}
         },
         required: ["weights"]
       }
     },
     %{
       name: "register_system",
-      description: "Register a new memory system for evaluation with its MCP endpoint.",
+      description: "Register a memory system with its MCP endpoint for evaluation.",
       input_schema: %{
         type: "object",
         properties: %{
           name: %{type: "string"},
-          mcp_endpoint: %{type: "string", description: "MCP server URL or stdio command"},
-          transport: %{type: "string", enum: ["stdio", "sse"]},
-          version: %{type: "string"}
+          display_name: %{type: "string"},
+          mcp_endpoint: %{type: "string"},
+          transport: %{type: "string", enum: ["stdio", "sse"]}
         },
-        required: ["name", "mcp_endpoint"]
+        required: ["name", "mcp_endpoint", "transport"]
       }
     },
     %{
       name: "list_systems",
-      description: "List all registered memory systems with their MCP endpoints and status.",
+      description: "List all registered memory systems.",
       input_schema: %{type: "object", properties: %{}}
     },
     %{
-      name: "set_judge_model",
-      description: "Configure which LLM model to use as the judge in Phase C.",
-      input_schema: %{type: "object", properties: %{model: %{type: "string"}}, required: ["model"]}
-    },
-    %{
-      name: "set_generator_model",
-      description: "Configure which LLM model generates benchmark questions in Phase A.",
-      input_schema: %{type: "object", properties: %{model: %{type: "string"}}, required: ["model"]}
-    },
-    %{
       name: "get_config",
-      description: "Get current configuration: CL weights, models, registered systems, current cycle.",
+      description: "Current full PRISM configuration: weights, models, tier, costs.",
       input_schema: %{type: "object", properties: %{}}
     }
   ]
 
-  def start_link(opts) do
+  # --- GenServer ---
+
+  def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
   def init(opts) do
     transport = Keyword.get(opts, :transport, :stdio)
-    Logger.info("[CL-Eval MCP] Server started (transport: #{transport}, tools: #{length(@tools)})")
-
-    if transport == :stdio do
-      # Start reading from stdin in a separate task
-      Task.start_link(fn -> stdio_loop() end)
-    end
-
-    {:ok, %{transport: transport}}
+    Logger.info("[PRISM] MCP Server starting (transport: #{transport}, tools: #{length(@tools)})")
+    {:ok, %{transport: transport, tools: @tools}}
   end
 
-  @doc "Get all tool definitions for MCP tools/list response"
-  def tools, do: @tools
+  # --- MCP Protocol ---
 
-  @doc "Handle a tool call from MCP"
-  def handle_tool_call(name, arguments) do
-    case name do
-      "generate_suite" -> Manager.generate_suite(arguments)
-      "run_eval" -> Manager.run_eval(arguments["suite_id"], arguments["system"], arguments)
-      "run_matrix" -> Manager.run_matrix(arguments["suite_id"], arguments["systems"], arguments["models"])
-      "judge_run" -> Manager.judge_run(arguments["run_id"])
-      "analyze_gaps" -> Manager.analyze_gaps(arguments["cycle"])
-      "advance_cycle" -> Manager.advance_cycle()
-      "get_leaderboard" -> Prism.Leaderboard.get(arguments)
-      "compare_systems" -> Prism.Leaderboard.compare(arguments["system_a"], arguments["system_b"])
-      _ -> {:error, "Unknown tool: #{name}"}
-    end
+  @doc "Handle MCP tools/list request"
+  def handle_tools_list do
+    @tools
   end
 
-  # ── MCP Protocol (stdio) ───────────────────────────────────────────
+  @doc "Handle MCP tool invocation"
+  def handle_tool_call(name, args) do
+    Logger.info("[PRISM] Tool call: #{name}")
 
-  defp stdio_loop do
-    case IO.read(:stdio, :line) do
-      :eof -> :ok
-      {:error, _} -> :ok
-      line ->
-        line
-        |> String.trim()
-        |> process_mcp_message()
-
-        stdio_loop()
-    end
-  end
-
-  defp process_mcp_message(""), do: :ok
-  defp process_mcp_message(json) do
-    case Jason.decode(json) do
-      {:ok, %{"jsonrpc" => "2.0", "method" => method, "id" => id} = msg} ->
-        result = handle_mcp_method(method, msg)
-        response = %{"jsonrpc" => "2.0", "id" => id, "result" => result}
-        IO.write(:stdio, Jason.encode!(response) <> "\n")
-
-      {:ok, %{"jsonrpc" => "2.0", "method" => method} = msg} ->
-        # Notification (no id)
-        handle_mcp_method(method, msg)
-
-      {:error, _} ->
-        Logger.warning("[MCP] Invalid JSON: #{json}")
-    end
-  end
-
-  defp handle_mcp_method("initialize", _msg) do
-    %{
-      "protocolVersion" => "2024-11-05",
-      "capabilities" => %{"tools" => %{"listChanged" => true}},
-      "serverInfo" => %{
-        "name" => "cl-eval",
-        "version" => "0.1.0"
-      }
-    }
-  end
-
-  defp handle_mcp_method("tools/list", _msg) do
-    %{"tools" => Enum.map(@tools, fn tool ->
-      %{
-        "name" => tool.name,
-        "description" => tool.description,
-        "inputSchema" => tool.input_schema
-      }
-    end)}
-  end
-
-  defp handle_mcp_method("tools/call", %{"params" => %{"name" => name, "arguments" => args}}) do
-    case handle_tool_call(name, args) do
+    case dispatch(name, args) do
       {:ok, result} ->
-        %{"content" => [%{"type" => "text", "text" => Jason.encode!(result)}]}
+        %{content: [%{type: "text", text: Jason.encode!(result)}]}
 
       {:error, reason} ->
-        %{"content" => [%{"type" => "text", "text" => "Error: #{reason}"}], "isError" => true}
+        %{content: [%{type: "text", text: "Error: #{inspect(reason)}"}], isError: true}
     end
   end
 
-  defp handle_mcp_method(method, _msg) do
-    Logger.warning("[MCP] Unknown method: #{method}")
-    %{"error" => %{"code" => -32601, "message" => "Method not found"}}
+  # --- Tool Dispatch ---
+
+  defp dispatch("compose_scenarios", args) do
+    opts = [
+      count: Map.get(args, "count", 10),
+      focus_dimensions: Map.get(args, "focus_dimensions"),
+      focus_domains: Map.get(args, "focus_domains")
+    ]
+
+    case Map.get(args, "repo_anchor_id") do
+      nil ->
+        {:error, :repo_anchor_id_required}
+
+      id ->
+        case Prism.Repo.get(Prism.RepoAnchor, id) do
+          nil -> {:error, :repo_anchor_not_found}
+          anchor -> Prism.Scenario.Composer.compose(anchor, opts)
+        end
+    end
+  end
+
+  defp dispatch("validate_scenarios", args) do
+    ids = Map.get(args, "scenario_ids", [])
+    scenarios = Enum.map(ids, &Prism.Scenario.Library.get/1) |> Enum.filter(& &1)
+    {:ok, Prism.Scenario.Validator.validate_coverage(scenarios)}
+  end
+
+  defp dispatch("list_scenarios", args) do
+    filters = [
+      kind: Map.get(args, "kind"),
+      domain: Map.get(args, "domain"),
+      dimension: Map.get(args, "dimension"),
+      difficulty: Map.get(args, "difficulty")
+    ]
+
+    {:ok, Prism.Scenario.Library.list(filters)}
+  end
+
+  defp dispatch("get_scenario", %{"scenario_id" => id}) do
+    case Prism.Scenario.Library.get(id) do
+      nil -> {:error, :not_found}
+      scenario -> {:ok, scenario}
+    end
+  end
+
+  defp dispatch("retire_scenario", %{"scenario_id" => id, "reason" => reason}) do
+    case Prism.Repo.get(Prism.Scenario, id) do
+      nil ->
+        {:error, :not_found}
+
+      %{kind: "anchor"} ->
+        {:error, :cannot_retire_anchor}
+
+      scenario ->
+        changeset = Prism.Scenario.retire_changeset(scenario, reason)
+
+        case Prism.Repo.update(changeset) do
+          {:ok, updated} ->
+            Prism.Scenario.Library.reload()
+            {:ok, %{retired: updated.id}}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  defp dispatch("import_external", _args) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("run_interaction", %{
+         "scenario_id" => sid,
+         "system_id" => sysid,
+         "llm_backend" => llm
+       }) do
+    scenario = Prism.Scenario.Library.get(sid)
+
+    if scenario do
+      Prism.Simulator.Engine.interact(scenario, %{}, sysid, llm)
+    else
+      {:error, :scenario_not_found}
+    end
+  end
+
+  defp dispatch("run_sequence", %{
+         "sequence_id" => seqid,
+         "system_id" => sysid,
+         "llm_backend" => llm
+       }) do
+    case Prism.Repo.get(Prism.Sequence, seqid) do
+      nil -> {:error, :sequence_not_found}
+      sequence -> Prism.Sequence.Runner.run(sequence, sysid, llm)
+    end
+  end
+
+  defp dispatch("run_matrix", _args) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("get_run_status", %{"run_id" => id}) do
+    case Prism.Repo.get(Prism.Run, id) do
+      nil ->
+        {:error, :not_found}
+
+      run ->
+        {:ok, %{status: run.status, started_at: run.started_at, completed_at: run.completed_at}}
+    end
+  end
+
+  defp dispatch("get_transcript", %{"transcript_id" => id}) do
+    case Prism.Repo.get(Prism.Transcript, id) do
+      nil -> {:error, :not_found}
+      transcript -> {:ok, transcript}
+    end
+  end
+
+  defp dispatch("cancel_run", %{"run_id" => id}) do
+    case Prism.Repo.get(Prism.Run, id) do
+      nil ->
+        {:error, :not_found}
+
+      run ->
+        changeset = Prism.Run.status_changeset(run, "cancelled")
+        Prism.Repo.update(changeset)
+    end
+  end
+
+  defp dispatch("judge_transcript", %{"transcript_id" => _id} = _args) do
+    # TODO: Load transcript from DB, run DimensionWorker.judge_all
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("judge_dimension", %{"transcript_id" => _id, "dimension" => _dim} = args) do
+    _model = Map.get(args, "judge_model", "claude-sonnet-4-20250514")
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("meta_judge", %{"judgment_id" => _id} = _args) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("meta_judge_batch", %{"run_id" => _id} = _args) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("override_judgment", %{
+         "judgment_id" => _id,
+         "new_score" => _score,
+         "reason" => _reason
+       }) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("get_leaderboard", args) do
+    opts = [
+      cycle: Map.get(args, "cycle"),
+      dimension: Map.get(args, "dimension"),
+      domain: Map.get(args, "domain"),
+      limit: Map.get(args, "limit", 50)
+    ]
+
+    {:ok, Prism.Leaderboard.get(opts)}
+  end
+
+  defp dispatch("get_leaderboard_history", %{"system" => system} = args) do
+    opts = [
+      from_cycle: Map.get(args, "from_cycle"),
+      to_cycle: Map.get(args, "to_cycle"),
+      domain: Map.get(args, "domain")
+    ]
+
+    {:ok, Prism.Leaderboard.history(system, opts)}
+  end
+
+  defp dispatch("compare_systems", %{"system_a" => a, "system_b" => b} = args) do
+    opts = [
+      cycle: Map.get(args, "cycle"),
+      domain: Map.get(args, "domain")
+    ]
+
+    {:ok, Prism.Leaderboard.compare(a, b, opts)}
+  end
+
+  defp dispatch("get_dimension_leaders", args) do
+    opts = [
+      cycle: Map.get(args, "cycle"),
+      domain: Map.get(args, "domain")
+    ]
+
+    {:ok, Prism.Leaderboard.dimension_leaders(opts)}
+  end
+
+  defp dispatch("analyze_gaps", args) do
+    cycle = Map.get(args, "cycle")
+    Manager.analyze_gaps(cycle)
+  end
+
+  defp dispatch("evolve_scenarios", _args) do
+    {:error, :not_implemented}
+  end
+
+  defp dispatch("advance_cycle", _args) do
+    Manager.advance_cycle()
+  end
+
+  defp dispatch("calibrate_irt", _args) do
+    Prism.IRT.Calibrator.recalibrate([])
+    {:ok, Prism.IRT.Calibrator.summary()}
+  end
+
+  defp dispatch("get_cycle_history", _args) do
+    {:ok, Manager.history()}
+  end
+
+  defp dispatch("set_cl_weights", %{"weights" => weights}) do
+    atom_weights = Map.new(weights, fn {k, v} -> {String.to_existing_atom(k), v} end)
+
+    case Prism.Benchmark.CLCategories.validate_weights(atom_weights) do
+      :ok -> {:ok, %{weights: atom_weights, status: "updated"}}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp dispatch("register_system", args) do
+    changeset =
+      Prism.System.changeset(%Prism.System{}, %{
+        name: Map.get(args, "name"),
+        display_name: Map.get(args, "display_name", Map.get(args, "name")),
+        mcp_endpoint: Map.get(args, "mcp_endpoint"),
+        transport: Map.get(args, "transport")
+      })
+
+    case Prism.Repo.insert(changeset) do
+      {:ok, system} -> {:ok, %{id: system.id, name: system.name}}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  defp dispatch("list_systems", _args) do
+    systems = Prism.Repo.all(Prism.System)
+    {:ok, systems}
+  end
+
+  defp dispatch("get_config", _args) do
+    state = Manager.state()
+
+    {:ok,
+     %{
+       cycle: state.current_cycle,
+       status: state.status,
+       phase: state.phase,
+       config: state.config,
+       weights: Prism.Benchmark.CLCategories.default_weights(),
+       domains: Prism.Domain.all_strings(),
+       tool_count: length(@tools)
+     }}
+  end
+
+  defp dispatch(unknown, _args) do
+    {:error, {:unknown_tool, unknown}}
   end
 end
