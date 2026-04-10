@@ -1,4 +1,14 @@
-# Dual-Loop Machine Architecture
+# Dual- and Triple-Loop Machine Architecture
+
+> **PULSE update (OS-010, 2026-04):** With the introduction of OS-010 PULSE,
+> the loop-interlock pattern documented here is now formalized as a manifest
+> standard. Graphonomous, PRISM, AgenTroMatic, and every other portfolio loop
+> declare their phases in `<loop>.pulse.json` files (see `/PULSE/manifests/`),
+> validated against `pulse-loop-manifest.v0.1.json`. The "dual loop" is a
+> special case of arbitrarily nestable PULSE loops — the same machine grouping
+> works at any depth, and PRISM's `interact` phase reads the inner system's
+> PULSE manifest to discover the `retrieve` boundary at runtime rather than
+> hard-coding the integration. See "Triple loop and beyond" below.
 
 ## Overview
 
@@ -111,3 +121,66 @@ See:
 - `graphonomous/lib/graphonomous/mcp/machines/` — Graphonomous machine modules
 - `PRISM/lib/prism/mcp/machines/` — PRISM machine modules
 - `AmpersandBoxDesign/prompts/DUAL_LOOP_MACHINES.md` — canonical architecture design
+
+## Triple loop and beyond — PULSE generalization
+
+The Graphonomous ↔ PRISM dual loop is the canonical example, but the [&]
+ecosystem actually runs **at least three** nested loops today:
+
+```
+PRISM (outer)        compose → interact → observe → reflect → diagnose
+  │
+  └─ Graphonomous    retrieve → route → act → learn → consolidate
+       │
+       └─ Deliberation    survey → triage → dispatch → act → learn
+```
+
+OS-010 PULSE encodes this nesting in each manifest's `nesting` block:
+
+- `prism.benchmark` declares `inner_loops: [graphonomous.continual_learning]`
+- `graphonomous.continual_learning` declares `inner_loops: [graphonomous.deliberate]` and `parent_loop: prism.benchmark`
+- `graphonomous.deliberate` declares `parent_loop: graphonomous.continual_learning`
+
+PULSE supports unbounded nesting depth. OS-008 (Agent Harness, draft) is
+expected to add a fourth outer layer that wraps PRISM itself — when it
+ships, the only change required is a new manifest with
+`inner_loops: [prism.benchmark]`. No code changes to existing machines.
+
+### Why this matters for the machine architecture
+
+The 5/6/11-tool count documented above is a **floor**, not a ceiling.
+Adding a third loop adds at most 5 more machines (one per phase kind), and
+because PULSE manifests declare the inner-loop boundary explicitly, the
+outer machines do not need to learn about inner machines individually.
+PRISM's `interact` machine, for example, drives any PULSE-conforming
+inner loop through its declared `retrieve` phase — it does not need a
+Graphonomous-specific code path.
+
+| Layers in session | Tool count (machines) | Tool count (legacy v1) |
+|---|---|---|
+| Graphonomous alone | 5 | 29 |
+| Graphonomous + PRISM | 11 | 76 |
+| Graphonomous + PRISM + OS-008 Harness | ~16 | ~100+ |
+| Graphonomous + PRISM + OS-008 + AgenTroMatic deliberation | ~21 | ~130+ |
+
+The savings compound with depth, and PULSE's manifest standard is what
+makes the composition algebraic instead of ad-hoc.
+
+### Three-protocol stack at runtime
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  PRISM    — measures loops over time      (diagnostic)   │ OS-009
+├──────────────────────────────────────────────────────────┤
+│  PULSE    — declares loops + circulation   (temporal)    │ OS-010
+├──────────────────────────────────────────────────────────┤
+│  [&]      — composes capabilities          (structural)  │ AmpersandBoxDesign
+└──────────────────────────────────────────────────────────┘
+```
+
+A loop is **PULSE-conforming** if its manifest validates against
+`pulse-loop-manifest.v0.1.json` and its runtime passes all 12 conformance
+tests. A system is **PRISM-evaluable** automatically once it is
+PULSE-conforming — PRISM's `compose` phase reads the manifest, injects
+scenarios at the declared `retrieve` boundary, and observes outcomes via
+the declared `learn` phase. No bespoke per-system integration required.
