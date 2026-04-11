@@ -1,0 +1,64 @@
+{
+  "name": "os-prism",
+  "version": "0.1.0",
+  "description": "PRISM OS-009 reference MCP server — 6 loop-phase machines (compose, interact, observe, reflect, diagnose, config) that benchmark any PULSE-conforming memory system. One of four MCP servers in the [&] three-protocol stack (box-and-box, graphonomous, os-prism, os-pulse).",
+  "license": "Apache-2.0",
+  "author": "Ampersand Box Design <travis@ampersandboxdesign.com> (https://ampersandboxdesign.com)",
+  "homepage": "https://opensentience.org/docs/spec/OS-009-PRISM-SPECIFICATION.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/c-u-l8er/AmpersandBoxDesign.git",
+    "directory": "PRISM/npm"
+  },
+  "bugs": {
+    "url": "https://github.com/c-u-l8er/AmpersandBoxDesign/issues"
+  },
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "os-prism": "bin/os-prism.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "scripts",
+    "README.md",
+    "docs/NPM_PACKAGE.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node bin/os-prism.js --help",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.mjs",
+    "postinstall": "node scripts/postinstall.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "prism",
+    "os-prism",
+    "os-009",
+    "benchmark",
+    "continual-learning",
+    "irt",
+    "opensentience",
+    "ampersand"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.8.0",
+    "yargs": "^17.7.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.0",
+    "@types/yargs": "^17.0.33",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.tsbuildinfo
+vendor/prism_engine
+vendor/prism_engine.*

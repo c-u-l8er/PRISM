@@ -82,10 +82,36 @@ echo '{"method":"tools/list"}' | mix run --no-halt
 ## Stack
 
 - **Language**: Elixir 1.17+ / OTP 27
-- **Database**: Postgres (via Ecto)
-- **Protocol**: MCP with 30 tools (stdio/SSE)
-- **LLM**: Anthropic Claude, OpenAI GPT-4o, Google Gemini
-- **Deploy**: Fly.io
+- **Database**: Postgres (server mode via Ecto) · SQLite + sqlite-vec (local `os-prism` npm mode)
+- **Protocol**: MCP exposed as **6 loop-phase machines** — `compose`, `interact`, `observe`, `reflect`, `diagnose`, `config` — over stdio (local) and SSE/Streamable HTTP (server). Each machine dispatches internally to 5–13 actions (down from 47 individual tools; see `docs/DUAL_LOOP_MACHINES.md`).
+- **LLM**: Anthropic Claude, OpenAI GPT-4o, Google Gemini, OpenRouter
+- **Deploy**: Fly.io (hosted) · `npx -y os-prism` (local)
+
+## Four-Package MCP Stack
+
+PRISM ships as one of four npm-distributed MCP servers that together form the [&] three-protocol stack. All four install identically with `npx -y <pkg> --db <path>` and carry their own embedded SQLite + sqlite-vec database:
+
+| Package        | Role                                     | DB path                         |
+|----------------|------------------------------------------|---------------------------------|
+| `box-and-box`  | [&] Protocol validator / composer        | `~/.box-and-box/specs.db`       |
+| `graphonomous` | Memory loop (5 machines)                 | `~/.graphonomous/knowledge.db`  |
+| `os-prism`     | Diagnostic loop (6 machines, **this**)   | `~/.os-prism/benchmarks.db`     |
+| `os-pulse`     | PULSE manifest registry (8 tools)        | `~/.os-pulse/manifests.db`      |
+
+`.mcp.json` snippet to install all four:
+
+```jsonc
+{
+  "mcpServers": {
+    "ampersand":    { "command": "npx", "args": ["-y", "box-and-box",  "--db", "~/.box-and-box/specs.db"] },
+    "graphonomous": { "command": "npx", "args": ["-y", "graphonomous", "--db", "~/.graphonomous/knowledge.db"] },
+    "prism":        { "command": "npx", "args": ["-y", "os-prism",     "--db", "~/.os-prism/benchmarks.db"] },
+    "pulse":        { "command": "npx", "args": ["-y", "os-pulse",     "--db", "~/.os-pulse/manifests.db"] }
+  }
+}
+```
+
+PRISM is **PULSE-evaluable**: once a memory system publishes a PULSE manifest, `os-prism compose` reads it directly to discover the `retrieve` boundary, the `learn` phase, and substrate URIs. No bespoke per-system integration is required — see `docs/DUAL_LOOP_MACHINES.md` § "Three-protocol stack at runtime."
 
 ## Specification
 
