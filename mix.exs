@@ -45,7 +45,16 @@ defmodule Prism.MixProject do
       {:anubis_mcp, path: "../graphonomous/vendor/anubis_mcp"},
 
       # UUID generation
-      {:elixir_uuid, "~> 1.2"}
+      {:elixir_uuid, "~> 1.2"},
+
+      # Phoenix web layer — landing page + leaderboard + future LiveView
+      {:phoenix, "~> 1.7.14"},
+      {:phoenix_html, "~> 4.1"},
+      {:phoenix_live_view, "~> 1.0.0"},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
+      {:phoenix_pubsub, "~> 2.1"},
+      {:bandit, "~> 1.5"},
+      {:gettext, "~> 0.26"}
     ]
   end
 

@@ -4,6 +4,7 @@ defmodule Prism.Application do
 
   Supervision tree:
   - Repo (SQLite in dev, Postgres in prod)
+  - Phoenix.PubSub + PrismWeb.Endpoint (landing page + leaderboard API)
   - Scenario.Library (ETS-cached scenarios + IRT params)
   - Simulator.Supervisor (concurrent interaction sessions)
   - Judge.Supervisor (concurrent judging tasks)
@@ -25,6 +26,10 @@ defmodule Prism.Application do
       # Database
       Prism.Repo,
 
+      # Phoenix web layer
+      {Phoenix.PubSub, name: Prism.PubSub},
+      PrismWeb.Endpoint,
+
       # Scenario library (ETS cache)
       Prism.Scenario.Library,
 
@@ -44,5 +49,13 @@ defmodule Prism.Application do
 
     opts = [strategy: :one_for_one, name: Prism.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Tell Phoenix to update the endpoint configuration whenever the
+  # application is updated.
+  @impl true
+  def config_change(changed, _new, removed) do
+    PrismWeb.Endpoint.config_change(changed, removed)
+    :ok
   end
 end

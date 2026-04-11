@@ -7,8 +7,12 @@ primary_region = "iad"
 [env]
   MIX_ENV = "prod"
   RUNNER_POOL_SIZE = "4"
-  PHX_HOST = "prism-eval.fly.dev"
+  PHX_HOST = "prism.opensentience.org"
   POOL_SIZE = "10"
+  PORT = "4000"
+
+# SECRET_KEY_BASE must be set as a Fly secret:
+#   fly secrets set SECRET_KEY_BASE=$(mix phx.gen.secret)
 
 [http_service]
   internal_port = 4000

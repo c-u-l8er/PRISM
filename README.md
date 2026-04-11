@@ -62,22 +62,98 @@ Scenario sequences run S1→S2→S3 without resetting memory. Measures whether t
 ### Domain Categories
 Every scenario tagged by domain (code, medical, business, personal, research, creative, legal, operations). Enables "Who's best at medical CL?" comparisons.
 
-## Quick Start
+## Running locally
+
+PRISM ships as a single Elixir/OTP app that runs three things side-by-side
+in one supervision tree:
+
+1. The **evaluation engine** (compose → interact → observe → reflect → diagnose)
+2. The **MCP server** exposing six loop-phase machines over stdio
+3. A **Phoenix 1.7 web layer** serving the marketing site at `/` and a JSON
+   leaderboard at `/api/leaderboard`
+
+### Prerequisites
+
+- Elixir 1.17+ / Erlang/OTP 27
+- SQLite (bundled via `ecto_sqlite3` — no extra install needed for dev)
+- No Node / esbuild / Tailwind — CSS is hand-written in `priv/static/assets/app.css`
+
+### First-time setup
 
 ```bash
-# Dependencies
+cd PRISM
 mix deps.get
-
-# Database
 mix ecto.create
 mix ecto.migrate
-
-# Run
-mix run --no-halt
-
-# Or via MCP
-echo '{"method":"tools/list"}' | mix run --no-halt
 ```
+
+The dev database lives at `~/.prism/prism_dev.db` (SQLite, WAL mode). Override
+with `config/dev.exs` if you want it elsewhere.
+
+### Start the Phoenix server (site + API + engine, all in one process)
+
+```bash
+mix phx.server
+```
+
+Then open:
+
+- <http://localhost:4000/> — the marketing site
+- <http://localhost:4000/api/leaderboard> — leaderboard JSON (currently a stub)
+- <http://localhost:4000/api/health> — health check
+
+Live reload is enabled in dev — edits to `lib/prism_web/**/*.{ex,heex}` and
+`priv/static/**/*.css` trigger an automatic browser refresh.
+
+### Start without the web layer (headless engine + MCP only)
+
+```bash
+mix run --no-halt
+```
+
+This boots the full supervision tree (including the Phoenix endpoint on 4000)
+without attaching to the shell for HTTP serving. For a truly headless run
+that skips the web layer entirely, set `PHX_SERVER=0` or comment out
+`PrismWeb.Endpoint` in `lib/prism/application.ex`.
+
+### Use as an MCP server from a Claude / Codex / Zed session
+
+Add to your `.mcp.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "prism": { "command": "npx", "args": ["-y", "os-prism", "--db", "~/.os-prism/benchmarks.db"] }
+  }
+}
+```
+
+Or run directly against the checkout via stdio:
+
+```bash
+mix run --no-halt -e "Prism.MCP.Stdio.start()"
+```
+
+### Tests and format
+
+```bash
+mix test
+mix format --check-formatted
+```
+
+### Production release (Fly.io)
+
+The `Dockerfile` + `fly.toml` build a standalone release that serves the
+site and the engine from the same VM. Before the first deploy, set the
+Phoenix cookie secret as a Fly secret:
+
+```bash
+fly secrets set SECRET_KEY_BASE=$(mix phx.gen.secret)
+fly deploy
+```
+
+The release listens on `PORT=4000` (see `fly.toml`) and is fronted by Fly's
+HTTPS proxy at `https://prism-eval.fly.dev`.
 
 ## Stack
 

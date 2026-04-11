@@ -1,0 +1,365 @@
+<main class="prism-page">
+  <header class="prism-topbar">
+    <a href="/" class="prism-mark" aria-label="PRISM">
+      <svg viewBox="0 0 80 80" aria-hidden="true" class="prism-mark__glyph">
+        <defs>
+          <linearGradient id="spectrum-a" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#8b5cf6" />
+            <stop offset="0.25" stop-color="#3b82f6" />
+            <stop offset="0.5" stop-color="#06b6d4" />
+            <stop offset="0.75" stop-color="#84cc16" />
+            <stop offset="1" stop-color="#f59e0b" />
+          </linearGradient>
+        </defs>
+        <polygon points="40,8 72,64 8,64" fill="none" stroke="url(#spectrum-a)" stroke-width="3" stroke-linejoin="round" />
+        <line x1="40" y1="8" x2="40" y2="64" stroke="rgba(255,255,255,.22)" stroke-width="1" />
+      </svg>
+      <span class="prism-mark__word">PRISM</span>
+    </a>
+    <nav class="prism-nav" aria-label="Primary">
+      <a href="#acronym">Acronym</a>
+      <a href="#dimensions">Dimensions</a>
+      <a href="#loop">Loop</a>
+      <a href="#judging">Judging</a>
+      <a href="#install">Install</a>
+      <a href="#opensentience">Open Research</a>
+      <a href="/api/leaderboard">Leaderboard</a>
+    </nav>
+    <div class="prism-topbar__meta">
+      <span class="prism-pill">OS-009</span>
+      <a class="prism-cta-mini" href="https://github.com/c-u-l8er/PRISM" target="_blank" rel="noopener">GitHub →</a>
+    </div>
+  </header>
+
+  <section class="prism-hero">
+    <div class="prism-hero__rule">
+      <span>OS-009 · a diagnostic loop in the [&amp;] three-protocol stack</span>
+    </div>
+    <h1 class="prism-hero__title">
+      <span class="prism-hero__line">The benchmark</span>
+      <span class="prism-hero__line prism-hero__line--spectral">refracts</span>
+      <span class="prism-hero__line">memory into nine colors.</span>
+    </h1>
+    <p class="prism-hero__lede">
+      Most memory benchmarks give you one number and a ranking.
+      PRISM decomposes continual learning into <strong>nine CL dimensions</strong>,
+      scores them against git-grounded truth, audits its own judges,
+      and evolves scenarios as systems improve — so the leaderboard
+      never stops measuring the frontier.
+    </p>
+
+    <div class="prism-hero__ctas">
+      <a class="prism-cta prism-cta--primary" href="#install">Run a cycle</a>
+      <a class="prism-cta" href="#loop">See the loop</a>
+    </div>
+
+    <div class="prism-spectrum" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+
+  <section class="prism-section prism-section--acronym" id="acronym" aria-label="What PRISM stands for">
+    <div class="prism-acronym">
+      <span class="prism-label">§00 · the name</span>
+      <h2 class="prism-acronym__h">PRISM</h2>
+      <ol class="prism-acronym__letters">
+        <li style="--hue: 280deg;"><span>P</span><strong>rotocol</strong></li>
+        <li style="--hue: 220deg;"><span>R</span><strong>ating</strong><em>(for)</em></li>
+        <li style="--hue: 190deg;"><span>I</span><strong>terative</strong></li>
+        <li style="--hue: 115deg;"><span>S</span><strong>ystem</strong></li>
+        <li style="--hue: 40deg;"><span>M</span><strong>emory</strong></li>
+      </ol>
+      <p class="prism-acronym__expanded">
+        <strong>Protocol for Rating Iterative System Memory.</strong>
+        A diagnostic loop that rates how well a memory system
+        iterates — not just what it remembers once, but how it
+        stabilizes, acquires, revises, and consolidates over time.
+      </p>
+    </div>
+  </section>
+
+  <section class="prism-section" id="why">
+    <div class="prism-section__head">
+      <span class="prism-label">§01 · premise</span>
+      <h2>One number can't see what's actually learning.</h2>
+    </div>
+
+    <div class="prism-compare">
+      <article class="prism-compare__col prism-compare__col--legacy">
+        <h3>Legacy benchmarks</h3>
+        <ul>
+          <li><span>Synthetic Q&amp;A</span> — authors write questions and expected answers.</li>
+          <li><span>Single pass</span> — store once, retrieve once, score once.</li>
+          <li><span>One composite</span> — one headline number for everything.</li>
+          <li><span>One judge</span> — a single LLM call decides correctness.</li>
+          <li><span>Static bank</span> — questions never evolve with the field.</li>
+        </ul>
+      </article>
+
+      <div class="prism-compare__arrow" aria-hidden="true">→</div>
+
+      <article class="prism-compare__col prism-compare__col--prism">
+        <h3>PRISM</h3>
+        <ul>
+          <li><span>Observational</span> — judges watch agents interact naturally.</li>
+          <li><span>Git-grounded</span> — the code at a commit IS the answer.</li>
+          <li><span>Closed-loop</span> — scenarios sequence S1→S2→S3 without reset.</li>
+          <li><span>Nine dimensions</span> — stability, plasticity, κ-reasoning, and more.</li>
+          <li><span>Three judge layers</span> — transcript, L2 dim judges, L3 meta-judges.</li>
+          <li><span>Self-evolving</span> — gap analysis and IRT recalibration each cycle.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="prism-section prism-section--tight" id="dimensions">
+    <div class="prism-section__head">
+      <span class="prism-label">§02 · the nine colors</span>
+      <h2>CL refracted into measurable dimensions.</h2>
+      <p class="prism-section__lede">
+        A continual learning system is not one thing — it has to remember without forgetting,
+        acquire without thrashing, revise without contradiction, abstract without over-generalizing,
+        and know what it doesn't know. PRISM scores all nine.
+      </p>
+    </div>
+
+    <ol class="prism-dims">
+      <li style="--hue: 280deg;"><strong>01</strong><span class="prism-dims__name">Stability</span><span class="prism-dims__w">w 0.20</span><span class="prism-dims__desc">Anti-forgetting under new input.</span></li>
+      <li style="--hue: 255deg;"><strong>02</strong><span class="prism-dims__name">Plasticity</span><span class="prism-dims__w">w 0.18</span><span class="prism-dims__desc">Acquisition of genuinely new facts.</span></li>
+      <li style="--hue: 220deg;"><strong>03</strong><span class="prism-dims__name">Knowledge Update</span><span class="prism-dims__w">w 0.15</span><span class="prism-dims__desc">Belief revision on contradiction.</span></li>
+      <li style="--hue: 190deg;"><strong>04</strong><span class="prism-dims__name">Temporal Reasoning</span><span class="prism-dims__w">w 0.12</span><span class="prism-dims__desc">Ordering, decay, recency.</span></li>
+      <li style="--hue: 155deg;"><strong>05</strong><span class="prism-dims__name">Consolidation</span><span class="prism-dims__w">w 0.10</span><span class="prism-dims__desc">Abstraction of episodes into rules.</span></li>
+      <li style="--hue: 115deg;"><strong>06</strong><span class="prism-dims__name">Epistemic Awareness</span><span class="prism-dims__w">w 0.08</span><span class="prism-dims__desc">Knowing what it doesn't know.</span></li>
+      <li style="--hue: 80deg;"><strong>07</strong><span class="prism-dims__name">Cross-Domain Transfer</span><span class="prism-dims__w">w 0.07</span><span class="prism-dims__desc">Reuse across unfamiliar contexts.</span></li>
+      <li style="--hue: 40deg;"><strong>08</strong><span class="prism-dims__name">Intentional Forgetting</span><span class="prism-dims__w">w 0.05</span><span class="prism-dims__desc">GDPR-grade removal that actually sticks.</span></li>
+      <li style="--hue: 15deg;"><strong>09</strong><span class="prism-dims__name">Outcome Feedback</span><span class="prism-dims__w">w 0.05</span><span class="prism-dims__desc">Confidence updates from real results.</span></li>
+    </ol>
+  </section>
+
+  <section class="prism-section" id="loop">
+    <div class="prism-section__head">
+      <span class="prism-label">§03 · four phases, six machines</span>
+      <h2>The diagnostic loop that evolves with the field.</h2>
+    </div>
+
+    <div class="prism-loop">
+      <figure class="prism-loop__diagram">
+        <svg viewBox="0 0 720 340" aria-hidden="true">
+          <defs>
+            <linearGradient id="edge-g" x1="0" x2="1">
+              <stop offset="0" stop-color="#8b5cf6" />
+              <stop offset="1" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <rect x="20" y="60" width="140" height="70" rx="8" class="prism-loop__box" />
+          <text x="90" y="95" text-anchor="middle" class="prism-loop__title">Compose</text>
+          <text x="90" y="115" text-anchor="middle" class="prism-loop__sub">git anchors · IRT seed</text>
+
+          <rect x="200" y="60" width="140" height="70" rx="8" class="prism-loop__box" />
+          <text x="270" y="95" text-anchor="middle" class="prism-loop__title">Interact</text>
+          <text x="270" y="115" text-anchor="middle" class="prism-loop__sub">MCP · simulator</text>
+
+          <rect x="380" y="60" width="140" height="70" rx="8" class="prism-loop__box" />
+          <text x="450" y="95" text-anchor="middle" class="prism-loop__title">Observe</text>
+          <text x="450" y="115" text-anchor="middle" class="prism-loop__sub">L1→L2→L3 judges</text>
+
+          <rect x="560" y="60" width="140" height="70" rx="8" class="prism-loop__box" />
+          <text x="630" y="95" text-anchor="middle" class="prism-loop__title">Reflect</text>
+          <text x="630" y="115" text-anchor="middle" class="prism-loop__sub">gaps · IRT recal</text>
+
+          <rect x="290" y="220" width="140" height="70" rx="8" class="prism-loop__box prism-loop__box--accent" />
+          <text x="360" y="255" text-anchor="middle" class="prism-loop__title">Diagnose</text>
+          <text x="360" y="275" text-anchor="middle" class="prism-loop__sub">leaderboard · fixes</text>
+
+          <path d="M160,95 L200,95" class="prism-loop__edge" marker-end="url(#arrow)" />
+          <path d="M340,95 L380,95" class="prism-loop__edge" marker-end="url(#arrow)" />
+          <path d="M520,95 L560,95" class="prism-loop__edge" marker-end="url(#arrow)" />
+          <path d="M630,130 C630,200 430,220 430,220" fill="none" class="prism-loop__edge prism-loop__edge--back" marker-end="url(#arrow)" />
+          <path d="M290,255 C150,255 90,180 90,130" fill="none" class="prism-loop__edge prism-loop__edge--back" marker-end="url(#arrow)" />
+
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="url(#edge-g)" />
+          </marker>
+        </svg>
+        <figcaption>Six loop-phase machines — down from 76 individual tools — interlock with Graphonomous and PULSE to form the [&amp;] triple loop.</figcaption>
+      </figure>
+
+      <ol class="prism-loop__steps">
+        <li>
+          <strong>Compose</strong>
+          <p>Anchor scenarios on real git commits. Each commit boundary is a
+          probe: "what did the system know before, and what should it
+          infer after?" The code at HEAD is the oracle.</p>
+        </li>
+        <li>
+          <strong>Interact</strong>
+          <p>A user simulator drives the scored system over MCP, following a
+          scripted scenario tree. No leaking of expected answers — only
+          the diffs and probes the simulator would reasonably issue.</p>
+        </li>
+        <li>
+          <strong>Observe</strong>
+          <p>Three layers of judges. L1 is the raw transcript. L2 scores per
+          dimension with structured rubrics. L3 is a meta-judge from a
+          different model family that audits L2 for bias and drift.</p>
+        </li>
+        <li>
+          <strong>Reflect</strong>
+          <p>Gap analysis finds dimensions where judges disagree or where
+          difficulty curves have flattened. IRT re-estimates scenario
+          difficulty. New scenarios are generated to cover the gaps.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="prism-section" id="judging">
+    <div class="prism-section__head">
+      <span class="prism-label">§04 · triangulation</span>
+      <h2>Three judges. Three layers. One audit trail.</h2>
+    </div>
+
+    <div class="prism-judges">
+      <article class="prism-judges__card">
+        <header><span class="prism-layer">L1</span>Transcript</header>
+        <p>The raw interaction: every MCP call, every returned tool result, every probe. This is the <em>observable evidence</em> anything else has to justify itself against.</p>
+      </article>
+      <article class="prism-judges__card">
+        <header><span class="prism-layer">L2</span>Dimension judges</header>
+        <p>Nine structured rubrics, one per CL dimension. Each rubric cites spans of the transcript. No invisible reasoning — every score is traceable.</p>
+      </article>
+      <article class="prism-judges__card">
+        <header><span class="prism-layer">L3</span>Meta-judges</header>
+        <p>A second model family audits L2. If L2 and L3 disagree, the judgment is flagged for human review and the leaderboard reflects the uncertainty.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="prism-section prism-section--cta" id="install">
+    <div class="prism-install">
+      <div class="prism-install__copy">
+        <span class="prism-label">§05 · run it</span>
+        <h2>Benchmark your memory system in one command.</h2>
+        <p>PRISM ships as an Elixir/OTP release and an npm-installed MCP
+        server. Register your system, import or import-from-BEAM a
+        scenario suite, and run a cycle.</p>
+        <ul class="prism-install__bullets">
+          <li>Single-binary Fly.io deploy — this website runs on the same release.</li>
+          <li>Bring-your-own-runner: any MCP-capable agent can be scored.</li>
+          <li>Nine dimensions × domain tags × loop-closure rate.</li>
+          <li>Open leaderboard API at <code>/api/leaderboard</code>.</li>
+        </ul>
+      </div>
+
+      <pre class="prism-code" aria-label="Install and run">
+<span class="c"># 1. install as an MCP server</span>
+<span class="p">$</span> npx -y os-prism --db ~/.prism/benchmarks.db
+
+<span class="c"># 2. from a Claude / Codex / Zed session</span>
+<span class="p">→</span> /prism:bootstrap
+<span class="p">→</span> /prism:configure register graphonomous
+<span class="p">→</span> /prism:benchmark run --cycle 0001
+
+<span class="c"># 3. inspect the leaderboard</span>
+<span class="p">$</span> curl https://prism-eval.fly.dev/api/leaderboard
+      </pre>
+    </div>
+  </section>
+
+  <section class="prism-section prism-section--os" id="opensentience">
+    <div class="prism-os">
+      <span class="prism-label">§06 · open research</span>
+
+      <div class="prism-os__grid">
+        <div class="prism-os__copy">
+          <h2 class="prism-os__h">
+            PRISM is one instrument in an
+            <em>open research program</em> on machine cognition.
+          </h2>
+          <p class="prism-os__lede">
+            OpenSentience publishes the specifications — OS-001 through OS-010 —
+            that turn agent cognition into something you can <strong>read</strong>,
+            <strong>measure</strong>, and <strong>falsify</strong>. Structured memory.
+            Deliberation topology. Continual learning. Temporal algebra. Every
+            protocol ships as a public document, a reference implementation, and
+            a test.
+          </p>
+          <ul class="prism-os__list">
+            <li><span>OS-006</span> ampersand protocol — structural composition</li>
+            <li><span>OS-008</span> agent harness — pipeline enforcement</li>
+            <li><span>OS-009</span> <strong>PRISM — diagnostic loop (you are here)</strong></li>
+            <li><span>OS-010</span> PULSE — temporal loop algebra</li>
+          </ul>
+          <a class="prism-os__cta" href="https://opensentience.org" target="_blank" rel="noopener">
+            <span class="prism-os__cta-label">Explore OpenSentience</span>
+            <span class="prism-os__cta-arrow" aria-hidden="true">→</span>
+          </a>
+          <p class="prism-os__fineprint">
+            opensentience.org — open research into machine cognition, published by Ampersand Box Design.
+          </p>
+        </div>
+
+        <div class="prism-os__visual" aria-hidden="true">
+          <div class="prism-os__orbit">
+            <div class="prism-os__core">
+              <div class="prism-os__core-ring"></div>
+              <div class="prism-os__core-ring prism-os__core-ring--2"></div>
+              <div class="prism-os__core-dot"></div>
+            </div>
+            <svg class="prism-os__links" viewBox="-160 -160 320 320" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="prism-os-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+                  <stop offset="60%" stop-color="#8b5cf6" stop-opacity="0.4"/>
+                  <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <g class="prism-os__links-inner">
+                <%!-- 9 rays at 40° intervals, length 140.8 in viewBox units (matches node radius 320×0.44). --%>
+                <line x1="0" y1="0" x2="140.8" y2="0" stroke="#8b5cf6" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="107.87" y2="90.51" stroke="#6366f1" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="24.45" y2="138.66" stroke="#3b82f6" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="-70.4" y2="121.94" stroke="#06b6d4" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="-132.32" y2="48.16" stroke="#14b8a6" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="-132.32" y2="-48.16" stroke="#84cc16" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="-70.4" y2="-121.94" stroke="#facc15" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="24.45" y2="-138.66" stroke="#f59e0b" stroke-width="0.6"/>
+                <line x1="0" y1="0" x2="107.87" y2="-90.51" stroke="#f43f5e" stroke-width="0.6"/>
+              </g>
+              <circle cx="0" cy="0" r="38" fill="url(#prism-os-glow)"/>
+            </svg>
+            <ul class="prism-os__nodes">
+              <li style="--i: 0; --hue: 280deg;"><span>OS-001</span></li>
+              <li style="--i: 1; --hue: 260deg;"><span>OS-002</span></li>
+              <li style="--i: 2; --hue: 220deg;"><span>OS-003</span></li>
+              <li style="--i: 3; --hue: 190deg;"><span>OS-004</span></li>
+              <li style="--i: 4; --hue: 170deg;"><span>OS-005</span></li>
+              <li style="--i: 5; --hue: 115deg;"><span>OS-006</span></li>
+              <li style="--i: 6; --hue: 55deg;"><span>OS-007</span></li>
+              <li style="--i: 7; --hue: 30deg;"><span>OS-008</span></li>
+              <li style="--i: 8; --hue: 0deg;"><span>OS-009</span></li>
+            </ul>
+          </div>
+          <p class="prism-os__caption">
+            ten protocols · one open sentience
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="prism-footer">
+    <div class="prism-footer__left">
+      <strong>PRISM</strong>
+      <span>OpenSentience Specification OS-009</span>
+    </div>
+    <div class="prism-footer__stack">
+      <span>[&amp;] structural · <strong>PRISM diagnostic</strong> · PULSE temporal</span>
+    </div>
+    <div class="prism-footer__links">
+      <a href="https://github.com/c-u-l8er/PRISM" target="_blank" rel="noopener">GitHub</a>
+      <a href="/api/leaderboard">Leaderboard</a>
+      <a href="https://opensentience.org" target="_blank" rel="noopener">OpenSentience</a>
+    </div>
+  </footer>
+</main>

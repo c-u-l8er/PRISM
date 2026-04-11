@@ -16,6 +16,20 @@ config :prism,
   runner_pool_size: 4,
   storage_backend: :sqlite
 
+# Phoenix endpoint — serves the PRISM marketing site and JSON APIs
+config :prism, PrismWeb.Endpoint,
+  url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
+  render_errors: [
+    formats: [html: PrismWeb.ErrorHTML, json: PrismWeb.ErrorJSON],
+    layout: false
+  ],
+  pubsub_server: Prism.PubSub,
+  live_view: [signing_salt: "prism-os009-lv"]
+
+# Use Jason for JSON parsing in Phoenix
+config :phoenix, :json_library, Jason
+
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id, :cycle, :system, :run_id]

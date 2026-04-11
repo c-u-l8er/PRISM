@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" class="prism-root">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <.live_title suffix=" · PRISM">
+      {assigns[:page_title] || "PRISM — Self-improving memory benchmark"}
+    </.live_title>
+    <meta
+      name="description"
+      content="PRISM is the first self-improving continual learning benchmark for AI agent memory. Nine CL dimensions, git-grounded ground truth, three-layer judging, and a closed loop that gets harder as systems get better. OS-009 in the [&] three-protocol stack."
+    />
+    <meta
+      name="keywords"
+      content="continual learning benchmark, agent memory, OS-009, PRISM, IRT calibration, three-layer judging, closed-loop evaluation, [&] protocol"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,10 90,80 10,80' fill='none' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E" />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+  </head>
+  <body class="prism-body">
+    {@inner_content}
+  </body>
+</html>
