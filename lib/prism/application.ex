@@ -19,6 +19,12 @@ defmodule Prism.Application do
     # In-memory store for task profiles (no DB table yet)
     :ets.new(:prism_task_profiles, [:named_table, :set, :public])
 
+    # Run Ecto migrations at boot in releases (prod). In dev/test, migrations
+    # are run via `mix ecto.migrate` as usual.
+    if System.get_env("RELEASE_NAME") do
+      migrate_on_boot()
+    end
+
     children = [
       # MCP Registry (required by Anubis.Server.Supervisor)
       Anubis.Server.Registry,
@@ -57,5 +63,14 @@ defmodule Prism.Application do
   def config_change(changed, _new, removed) do
     PrismWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp migrate_on_boot do
+    path = Application.app_dir(:prism, "priv/repo/migrations")
+
+    {:ok, _, _} =
+      Ecto.Migrator.with_repo(Prism.Repo, fn repo ->
+        Ecto.Migrator.run(repo, path, :up, all: true)
+      end)
   end
 end

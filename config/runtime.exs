@@ -1,11 +1,16 @@
 import Config
 
 if config_env() == :prod do
-  database_url = System.fetch_env!("DATABASE_URL")
+  # SQLite on the mounted Fly volume (prism_data → /app/data)
+  database_path =
+    System.get_env("DATABASE_PATH") || "/app/data/prism.db"
 
   config :prism, Prism.Repo,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
+    database: database_path,
+    journal_mode: :wal,
+    cache_size: -64_000,
+    temp_store: :memory,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE", "5"))
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs; you can generate a fresh one

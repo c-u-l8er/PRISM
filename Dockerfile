@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.17.3-erlang-27.1.2-debian-bookworm-20241016-slim AS build
+FROM elixir:1.18-slim AS build
 
 RUN apt-get update -y && apt-get install -y build-essential git && apt-get clean
 
@@ -8,7 +8,8 @@ RUN mix local.hex --force && mix local.rebar --force
 
 ENV MIX_ENV=prod
 
-COPY mix.exs ./
+COPY mix.exs mix.lock ./
+COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV
 RUN mkdir config
 COPY config/config.exs config/prod.exs config/
@@ -22,10 +23,10 @@ COPY config/runtime.exs config/
 RUN mix release
 
 # ── Runtime ──────────────────────────────────────────────
-FROM debian:bookworm-20241016-slim
+FROM debian:trixie-slim
 
 RUN apt-get update -y && \
-    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates && \
+    apt-get install -y libstdc++6 openssl libncurses6 libtinfo6 locales ca-certificates && \
     apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen

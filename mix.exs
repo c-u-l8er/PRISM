@@ -42,7 +42,7 @@ defmodule Prism.MixProject do
       {:telemetry_poller, "~> 1.1"},
 
       # MCP server (vendored from graphonomous)
-      {:anubis_mcp, path: "../graphonomous/vendor/anubis_mcp"},
+      {:anubis_mcp, path: "vendor/anubis_mcp"},
 
       # UUID generation
       {:elixir_uuid, "~> 1.2"},
