@@ -36,6 +36,17 @@ defmodule Prism.Application do
       {Phoenix.PubSub, name: Prism.PubSub},
       PrismWeb.Endpoint,
 
+      # MCP server over Streamable HTTP (served via Phoenix at /mcp)
+      %{
+        id: :prism_mcp_http,
+        start:
+          {Anubis.Server.Supervisor, :start_link,
+           [
+             Prism.MCP.Machines.Server,
+             [transport: {:streamable_http, start: true}, request_timeout: 120_000]
+           ]}
+      },
+
       # Scenario library (ETS cache)
       Prism.Scenario.Library,
 

@@ -14,6 +14,10 @@ defmodule PrismWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :mcp do
+    plug PrismWeb.Plugs.CORS
+  end
+
   scope "/", PrismWeb do
     pipe_through :browser
 
@@ -25,5 +29,13 @@ defmodule PrismWeb.Router do
 
     get "/leaderboard", LeaderboardController, :index
     get "/health", HealthController, :index
+  end
+
+  # MCP Streamable HTTP endpoint — serves PRISM tools over HTTP
+  scope "/mcp" do
+    pipe_through :mcp
+
+    forward "/", Anubis.Server.Transport.StreamableHTTP.Plug,
+      server: Prism.MCP.Machines.Server
   end
 end
