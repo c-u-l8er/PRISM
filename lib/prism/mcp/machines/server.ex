@@ -23,7 +23,7 @@ defmodule Prism.MCP.Machines.Server do
   """
 
   use Anubis.Server,
-    name: "prism",
+    name: "os-prism",
     version: "0.1.0",
     capabilities: [:tools]
 
