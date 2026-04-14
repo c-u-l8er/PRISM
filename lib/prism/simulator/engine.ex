@@ -139,15 +139,16 @@ defmodule Prism.Simulator.Engine do
     }
   end
 
-  defp execute_user_action("probe", text, _turn, _conn, _opts) do
-    # Send query to memory system, record response
-    # TODO: Route through MCP adapter's query method
+  defp execute_user_action("probe", text, _turn, conn, _opts) do
+    # Send query to memory system via MCP retrieve tool
+    {response, retrieval_context} = call_system_retrieve(conn, text)
+
     %{
       "action" => "probe",
       "text" => text,
       "status" => "executed",
-      "response" => nil,
-      "retrieval_context" => nil,
+      "response" => response,
+      "retrieval_context" => retrieval_context,
       "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
     }
   end
@@ -164,12 +165,16 @@ defmodule Prism.Simulator.Engine do
     }
   end
 
-  defp execute_user_action(nil, text, _turn, _conn, _opts) do
-    # Generic user message
+  defp execute_user_action(nil, text, _turn, conn, _opts) do
+    # Generic user message — call retrieve on the target system
+    {response, retrieval_context} = call_system_retrieve(conn, text)
+
     %{
       "action" => "message",
       "text" => text,
       "status" => "executed",
+      "response" => response,
+      "retrieval_context" => retrieval_context,
       "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
     }
   end
@@ -184,6 +189,60 @@ defmodule Prism.Simulator.Engine do
       "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
     }
   end
+
+  # Call retrieve on the target memory system via MCP
+  # conn is an MCP connection map from McpClient.connect/1
+  defp call_system_retrieve(conn, query) when is_map(conn) and map_size(conn) > 0 do
+    alias Prism.Simulator.McpClient
+
+    case McpClient.call_tool(conn, "retrieve", %{action: "context", query: query}) do
+      {:ok, result} ->
+        # Extract the response text and context from the retrieve result
+        response_text = extract_response_text(result)
+        {response_text, result}
+
+      {:error, reason} ->
+        Logger.warning("[PRISM] System retrieve failed: #{inspect(reason)}")
+        {nil, nil}
+    end
+  end
+
+  defp call_system_retrieve(_conn, _query) do
+    # No connection available — return nil (stub mode)
+    {nil, nil}
+  end
+
+  # Extract human-readable text from a retrieve result
+  # Graphonomous returns {status, results: [{content, confidence, node_id, ...}, ...]}
+  defp extract_response_text(%{"results" => results}) when is_list(results) and results != [] do
+    results
+    |> Enum.map(fn node ->
+      label = node["content"] || node["label"] || node["id"] || "unknown"
+      # Truncate long content
+      label = if String.length(label) > 200, do: String.slice(label, 0, 200) <> "...", else: label
+      conf = node["confidence"]
+      if conf, do: "#{label} (confidence: #{Float.round(conf, 3)})", else: label
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp extract_response_text(%{"result" => %{"results" => results}}) when is_list(results) do
+    extract_response_text(%{"results" => results})
+  end
+
+  defp extract_response_text(%{"result" => %{"nodes" => nodes}}) when is_list(nodes) and nodes != [] do
+    nodes
+    |> Enum.map(fn node ->
+      label = node["content"] || node["label"] || node["id"] || "unknown"
+      conf = node["confidence"]
+      if conf, do: "#{label} (confidence: #{conf})", else: label
+    end)
+    |> Enum.join("; ")
+  end
+
+  defp extract_response_text(%{"raw" => raw}) when is_binary(raw), do: raw
+  defp extract_response_text(other) when is_binary(other), do: other
+  defp extract_response_text(_), do: nil
 
   # Count total turns and tool calls across all sessions
   defp count_interactions(sessions) do

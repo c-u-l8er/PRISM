@@ -5,6 +5,7 @@ defmodule Prism.MCP.Machines.Config do
   Actions:
   - `set_weights`     — Update 9-dimension weight vector
   - `register_system` — Register memory system + MCP endpoint
+  - `update_system`   — Update existing system (endpoint, transport, display name)
   - `list_systems`    — List registered systems
   - `get_config`      — Current full configuration
   - `create_profile`  — Define custom task profile
@@ -17,12 +18,12 @@ defmodule Prism.MCP.Machines.Config do
 
   alias Anubis.Server.Response
 
-  @valid_actions ~w(set_weights register_system list_systems get_config create_profile)
+  @valid_actions ~w(set_weights register_system update_system list_systems get_config create_profile)
 
   schema do
     field(:action, :string,
       required: true,
-      description: "Config action: set_weights | register_system | list_systems | get_config | create_profile"
+      description: "Config action: set_weights | register_system | update_system | list_systems | get_config | create_profile"
     )
 
     # set_weights
@@ -32,7 +33,7 @@ defmodule Prism.MCP.Machines.Config do
     field(:name, :string, description: "System name (register_system, create_profile)")
     field(:display_name, :string, description: "Display name (register_system)")
     field(:mcp_endpoint, :string, description: "MCP endpoint (register_system)")
-    field(:transport, :string, description: "Transport type: stdio | sse (register_system)")
+    field(:transport, :string, description: "Transport type: stdio | sse | streamable_http (register_system)")
 
     # create_profile
     field(:dimension_priorities, :string,
@@ -92,12 +93,38 @@ defmodule Prism.MCP.Machines.Config do
     end
   end
 
+  defp dispatch("update_system", params, frame) do
+    name = p(params, :name)
+
+    case name && Prism.Repo.get_by(Prism.System, name: name) do
+      nil ->
+        {:reply, error_response("System '#{name}' not found"), frame}
+
+      system ->
+        updates =
+          %{}
+          |> maybe_put(:display_name, p(params, :display_name))
+          |> maybe_put(:mcp_endpoint, p(params, :mcp_endpoint))
+          |> maybe_put(:transport, p(params, :transport))
+
+        changeset = Prism.System.changeset(system, updates)
+
+        case Prism.Repo.update(changeset) do
+          {:ok, updated} ->
+            {:reply, success_response(%{id: updated.id, name: updated.name, mcp_endpoint: updated.mcp_endpoint, transport: updated.transport}), frame}
+
+          {:error, changeset} ->
+            {:reply, error_response(inspect(changeset.errors)), frame}
+        end
+    end
+  end
+
   defp dispatch("list_systems", _params, frame) do
     systems = Prism.Repo.all(Prism.System)
 
     result =
       Enum.map(systems, fn s ->
-        %{id: s.id, name: s.name, display_name: s.display_name, transport: s.transport}
+        %{id: s.id, name: s.name, display_name: s.display_name, transport: s.transport, mcp_endpoint: s.mcp_endpoint}
       end)
 
     {:reply, success_response(result), frame}
@@ -159,6 +186,9 @@ defmodule Prism.MCP.Machines.Config do
   end
 
   # -- Helpers --
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, val), do: Map.put(map, key, val)
 
   defp normalize_action(nil), do: nil
   defp normalize_action(v) when is_binary(v), do: v |> String.trim() |> String.downcase()

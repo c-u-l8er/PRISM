@@ -33,7 +33,7 @@ defmodule Prism.System do
       :capabilities
     ])
     |> validate_required([:name, :display_name, :mcp_endpoint, :transport])
-    |> validate_inclusion(:transport, ~w(stdio sse))
+    |> validate_inclusion(:transport, ~w(stdio sse streamable_http))
     |> unique_constraint(:name)
   end
 end

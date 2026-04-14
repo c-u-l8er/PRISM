@@ -22,6 +22,8 @@ defmodule Prism.MCP.Machines.Interact do
 
   use Anubis.Server.Component, type: :tool
 
+  require Logger
+
   alias Anubis.Server.Response
 
   @valid_actions ~w(run run_sequence run_matrix status transcript cancel byor_evaluate byor_compare)
@@ -68,7 +70,9 @@ defmodule Prism.MCP.Machines.Interact do
          sysid when not is_nil(sysid) <- p(params, :system_id),
          llm when not is_nil(llm) <- p(params, :llm_backend),
          scenario when not is_nil(scenario) <- Prism.Scenario.Library.get(sid) do
-      case Prism.Simulator.Engine.interact(scenario, %{}, sysid, llm) do
+      # Look up system MCP endpoint and connect
+      conn = connect_to_system(sysid)
+      case Prism.Simulator.Engine.interact(scenario, conn, sysid, llm) do
         {:ok, result} ->
           # Persist the transcript to DB
           transcript_attrs = %{
@@ -137,7 +141,8 @@ defmodule Prism.MCP.Machines.Interact do
         for system_id <- systems,
             llm <- models,
             scenario <- scenarios do
-          case Prism.Simulator.Engine.interact(scenario, %{}, system_id, llm) do
+          conn = connect_to_system(system_id)
+          case Prism.Simulator.Engine.interact(scenario, conn, system_id, llm) do
             {:ok, result} ->
               transcript_attrs = %{
                 scenario_id: scenario.id,
@@ -263,7 +268,7 @@ defmodule Prism.MCP.Machines.Interact do
       else
         results =
           Enum.map(scenarios, fn scenario ->
-            case Prism.Simulator.Engine.interact(scenario, %{}, system_id, llm_backend) do
+            case Prism.Simulator.Engine.interact(scenario, connect_to_system(system_id), system_id, llm_backend) do
               {:ok, result} ->
                 transcript_attrs = %{
                   scenario_id: scenario.id,
@@ -330,7 +335,7 @@ defmodule Prism.MCP.Machines.Interact do
       else
         run_system = fn sys_id ->
           Enum.map(scenarios, fn scenario ->
-            case Prism.Simulator.Engine.interact(scenario, %{}, sys_id, llm_backend) do
+            case Prism.Simulator.Engine.interact(scenario, connect_to_system(sys_id), sys_id, llm_backend) do
               {:ok, result} ->
                 transcript_attrs = %{
                   scenario_id: scenario.id,
@@ -415,6 +420,28 @@ defmodule Prism.MCP.Machines.Interact do
       duration_ms: t.duration_ms,
       created_at: t.created_at && DateTime.to_iso8601(t.created_at)
     }
+  end
+
+  # Connect to a registered system's MCP endpoint.
+  # Returns a connection map for the simulator engine, or empty map on failure.
+  defp connect_to_system(system_id) do
+    case Prism.Repo.get(Prism.System, system_id) do
+      nil ->
+        Logger.warning("[PRISM] System #{system_id} not found")
+        %{}
+
+      %Prism.System{mcp_endpoint: nil} ->
+        Logger.warning("[PRISM] System #{system_id} has no MCP endpoint")
+        %{}
+
+      %Prism.System{mcp_endpoint: endpoint} ->
+        case Prism.Simulator.McpClient.connect(endpoint) do
+          {:ok, conn} -> conn
+          {:error, reason} ->
+            Logger.warning("[PRISM] Failed to connect to #{endpoint}: #{inspect(reason)}")
+            %{}
+        end
+    end
   end
 
   defp p(map, key) when is_map(map) and is_atom(key) do
