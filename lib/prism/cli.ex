@@ -21,6 +21,9 @@ defmodule Prism.CLI do
 
       {:ok, opts} ->
         configure_runtime(opts)
+        # Signal to Prism.Application that we're in CLI/STDIO mode
+        # so it skips the HTTP MCP server child.
+        Application.put_env(:prism, :mcp_mode, :stdio)
         Process.flag(:trap_exit, true)
         start_runtime()
         {:ok, monitor_pid} = start_mcp_server(opts)
@@ -73,7 +76,10 @@ defmodule Prism.CLI do
       Logger.configure(level: level)
     end
 
-    # Keep stdout clean for MCP protocol frames
+    # Keep stdout clean for MCP protocol frames.
+    # Must redirect the OTP default handler BEFORE starting apps so that
+    # early Logger.error calls (e.g. file_system inotify check) don't
+    # contaminate the MCP STDIO protocol stream.
     force_stderr_logging!()
 
     # Disable noisy Anubis logs during MCP handshake
@@ -197,14 +203,24 @@ defmodule Prism.CLI do
   defp force_stderr_logging! do
     Logger.configure_backend(:console, device: :standard_error)
 
+    # OTP's logger_std_h refuses to change :type after init, so we must
+    # remove and re-add the default handler with :standard_error.
     try do
-      :logger.set_handler_config(:default, :type, :standard_error)
+      case :logger.get_handler_config(:default) do
+        {:ok, %{module: module, config: config} = handler} ->
+          :logger.remove_handler(:default)
 
-      :logger.update_handler_config(:default, fn config ->
-        handler_config = Map.get(config, :config, %{})
-        updated_handler_config = Map.put(handler_config, :type, :standard_error)
-        Map.put(config, :config, updated_handler_config)
-      end)
+          new_config = Map.put(config, :type, :standard_error)
+
+          :logger.add_handler(
+            :default,
+            module,
+            Map.put(handler, :config, new_config)
+          )
+
+        _ ->
+          :ok
+      end
     rescue
       _ -> :ok
     catch

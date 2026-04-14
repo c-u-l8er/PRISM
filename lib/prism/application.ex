@@ -25,6 +25,27 @@ defmodule Prism.Application do
       migrate_on_boot()
     end
 
+    # When running in CLI/STDIO mode, skip the HTTP MCP server child —
+    # the CLI starts its own STDIO transport after the app boots.
+    mcp_mode = Application.get_env(:prism, :mcp_mode, :http)
+
+    mcp_http_children =
+      if mcp_mode == :stdio do
+        []
+      else
+        [
+          %{
+            id: :prism_mcp_http,
+            start:
+              {Anubis.Server.Supervisor, :start_link,
+               [
+                 Prism.MCP.Machines.Server,
+                 [transport: {:streamable_http, start: true}, request_timeout: 120_000]
+               ]}
+          }
+        ]
+      end
+
     children = [
       # MCP Registry (required by Anubis.Server.Supervisor)
       Anubis.Server.Registry,
@@ -34,19 +55,8 @@ defmodule Prism.Application do
 
       # Phoenix web layer
       {Phoenix.PubSub, name: Prism.PubSub},
-      PrismWeb.Endpoint,
-
-      # MCP server over Streamable HTTP (served via Phoenix at /mcp)
-      %{
-        id: :prism_mcp_http,
-        start:
-          {Anubis.Server.Supervisor, :start_link,
-           [
-             Prism.MCP.Machines.Server,
-             [transport: {:streamable_http, start: true}, request_timeout: 120_000]
-           ]}
-      },
-
+      PrismWeb.Endpoint
+    ] ++ mcp_http_children ++ [
       # Scenario library (ETS cache)
       Prism.Scenario.Library,
 
