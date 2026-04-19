@@ -22,8 +22,11 @@
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,10 90,80 10,80' fill='none' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <script type="module" src={~p"/assets/amp-nav.js"}>
+    </script>
   </head>
   <body class="prism-body">
+    <amp-nav property="prism"></amp-nav>
     {@inner_content}
   </body>
 </html>
