@@ -13,7 +13,21 @@ defmodule Prism.Simulator.McpClient do
   Returns a connection map with the session ID for subsequent tool calls.
   """
   @spec connect(String.t()) :: {:ok, map()} | {:error, term()}
-  def connect(mcp_endpoint) do
+  def connect(mcp_endpoint) when is_binary(mcp_endpoint) do
+    cond do
+      # stdio:// is a non-HTTP transport (test fixtures and local CLI
+      # attachments). This client only speaks Streamable HTTP; signal
+      # the caller to fall back to stub mode rather than blowing up
+      # inside Finch with an "invalid scheme" ArgumentError.
+      String.starts_with?(mcp_endpoint, "stdio://") ->
+        {:error, :stdio_transport_not_supported}
+
+      true ->
+        do_connect(mcp_endpoint)
+    end
+  end
+
+  defp do_connect(mcp_endpoint) do
     # 1. Initialize
     init_body = %{
       jsonrpc: "2.0",
