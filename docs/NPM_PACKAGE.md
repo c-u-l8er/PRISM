@@ -187,9 +187,9 @@ npm publish --access public
 
 ## Why os-prism ships third
 
-1. Depends on `box-and-box` for reading `*.ampersand.json` spec graphs to
-   understand what a system under test is composed of.
+1. Optionally reads a system-under-test's `*.ampersand.json` spec graph (via
+   the [&] reference CLI / SDKs) to understand what it is composed of.
 2. Depends on `os-pulse` to read the system-under-test's PULSE manifest and
    discover the `retrieve` and `learn` boundaries.
 3. Requires the graphonomous-style postinstall escript pattern, which is
-   the most complex install path of the four packages.
+   the most complex install path of the three packages.

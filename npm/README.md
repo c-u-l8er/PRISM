@@ -2,14 +2,17 @@
 
 **OpenSentience OS-009 PRISM reference MCP server.**
 
-One of four MCP servers in the [&] three-protocol stack:
+One of three MCP servers in the [&] three-protocol stack:
 
 | Package        | Role                                     | Install                                                          |
 |----------------|------------------------------------------|------------------------------------------------------------------|
-| `box-and-box`  | [&] Protocol validator / composer        | `npx -y box-and-box --db ~/.box-and-box/specs.db`                |
 | `graphonomous` | Memory loop (5 machines)                 | `npx -y graphonomous --db ~/.graphonomous/knowledge.db`          |
 | `os-prism`     | Diagnostic loop (**this**, 6 machines)  | `npx -y os-prism --db ~/.os-prism/benchmarks.db`                 |
 | `os-pulse`     | PULSE manifest registry                  | `npx -y os-pulse --db ~/.os-pulse/manifests.db`                  |
+
+> The `box-and-box` name now belongs to the [&] **governance kernel** (the
+> eight-rung arithmetic ladder · 97 property-tested laws — `AmpersandBoxDesign/box-and-box/`),
+> not an MCP server. The old `box-and-box` [&] Protocol validator MCP was removed.
 
 ## What os-prism does
 

@@ -22,6 +22,7 @@
       <a href="#loop">Loop</a>
       <a href="#judging">Judging</a>
       <a href="#install">Install</a>
+      <a href="#prism-industries">By Domain</a>
       <a href="#opensentience">Open Research</a>
       <a href="/api/leaderboard">Leaderboard</a>
     </nav>
@@ -267,9 +268,167 @@
     </div>
   </section>
 
+  <section class="prism-section" id="prism-industries">
+    <div class="prism-section__head">
+      <span class="prism-label">§06 · by domain</span>
+      <h2>One benchmark. Every team that ships memory.</h2>
+      <p>PRISM scores any MCP-capable system the same way — compose a
+      scenario suite, interact over the wire, observe with three-layer
+      judging, reflect and recalibrate. Below, the same loop wears five
+      jobs. Each is a <em>bring-your-own-runner</em> adapter: the runner is
+      yours, the nine CL dimensions and the leaderboard are shared.</p>
+    </div>
+
+    <div class="bb-gallery">
+      <div class="bb-tabs" role="tablist">
+        <button class="bb-tab active">AI eval &amp; QA</button>
+        <button class="bb-tab">Agent platforms</button>
+        <button class="bb-tab">RAG &amp; search</button>
+        <button class="bb-tab">Robotics memory</button>
+        <button class="bb-tab">Research labs</button>
+      </div>
+
+      <div class="bb-panels">
+        <%!-- 1 · AI EVAL & QA --%>
+        <div class="bb-panel active">
+          <p class="bb-frame">
+            <b>Eval &amp; QA teams.</b> Catch the forgetting regression before
+            your users do. A nightly cycle re-runs retention and
+            update-consistency scenarios, and any score drop pages the
+            channel — grounded in the actual git diff, not vibes.
+          </p>
+          <div class="bb-codewrap">
+            <div class="bb-chead">
+              <span class="bb-dot" style="background:#f43f5e"></span>
+              <span class="bb-dot" style="background:#facc15"></span>
+              <span class="bb-dot" style="background:#14b8a6"></span>
+              &nbsp;<span class="bb-fn">regression_runner.ex</span>
+              <span class="bb-lang">Elixir / PRISM.Runner</span>
+            </div>
+            <pre class="bb-pre"><code class="bb-code"></code></pre>
+          </div>
+          <div class="bb-meta">
+            <span><b>cycle</b> nightly</span>
+            <span><b>judges</b> L1·L2·L3</span>
+            <span><b>grounded</b> git diff</span>
+          </div>
+        </div>
+
+        <%!-- 2 · AGENT PLATFORMS --%>
+        <div class="bb-panel">
+          <p class="bb-frame">
+            <b>Agent marketplaces.</b> Rank every build on a level playing
+            field. Import a public suite, run each agent under a fixed
+            budget, publish to an open leaderboard — and the suite
+            <em>evolves harder</em> as the field improves.
+          </p>
+          <div class="bb-codewrap">
+            <div class="bb-chead">
+              <span class="bb-dot" style="background:#f43f5e"></span>
+              <span class="bb-dot" style="background:#facc15"></span>
+              <span class="bb-dot" style="background:#14b8a6"></span>
+              &nbsp;<span class="bb-fn">agent_runner.ex</span>
+              <span class="bb-lang">Elixir / PRISM.Runner</span>
+            </div>
+            <pre class="bb-pre"><code class="bb-code"></code></pre>
+          </div>
+          <div class="bb-meta">
+            <span><b>cycle</b> per-release</span>
+            <span><b>dimensions</b> all nine</span>
+            <span><b>leaderboard</b> public</span>
+          </div>
+        </div>
+
+        <%!-- 3 · RAG & SEARCH --%>
+        <div class="bb-panel">
+          <p class="bb-frame">
+            <b>RAG &amp; search vendors.</b> Prove your retrieval layer
+            recalls the right span — and <em>abstains</em> instead of
+            hallucinating when it shouldn't guess. Adversarial distractors
+            keep precision honest.
+          </p>
+          <div class="bb-codewrap">
+            <div class="bb-chead">
+              <span class="bb-dot" style="background:#f43f5e"></span>
+              <span class="bb-dot" style="background:#facc15"></span>
+              <span class="bb-dot" style="background:#14b8a6"></span>
+              &nbsp;<span class="bb-fn">recall_runner.ex</span>
+              <span class="bb-lang">Elixir / PRISM.Runner</span>
+            </div>
+            <pre class="bb-pre"><code class="bb-code"></code></pre>
+          </div>
+          <div class="bb-meta">
+            <span><b>cycle</b> per-index-build</span>
+            <span><b>adversarial</b> distractors</span>
+            <span><b>output</b> fix suggestions</span>
+          </div>
+        </div>
+
+        <%!-- 4 · ROBOTICS MEMORY --%>
+        <div class="bb-panel">
+          <p class="bb-frame">
+            <b>Robotics &amp; embodied AI.</b> Does the robot's memory
+            survive a re-map? Score spatial recall across episodes, backed
+            by SCOPE spatial claims persisted in Graphonomous, and alert on
+            catastrophic forgetting before the next deploy.
+          </p>
+          <div class="bb-codewrap">
+            <div class="bb-chead">
+              <span class="bb-dot" style="background:#f43f5e"></span>
+              <span class="bb-dot" style="background:#facc15"></span>
+              <span class="bb-dot" style="background:#14b8a6"></span>
+              &nbsp;<span class="bb-fn">spatial_runner.ex</span>
+              <span class="bb-lang">Elixir / PRISM.Runner</span>
+            </div>
+            <pre class="bb-pre"><code class="bb-code"></code></pre>
+          </div>
+          <div class="bb-meta">
+            <span><b>cycle</b> per-deploy</span>
+            <span><b>substrate</b> Graphonomous</span>
+            <span><b>region</b> graph_subgraph</span>
+          </div>
+        </div>
+
+        <%!-- 5 · RESEARCH LABS --%>
+        <div class="bb-panel">
+          <p class="bb-frame">
+            <b>Research labs.</b> Reproducible ablations: freeze the suite,
+            pin the seed, vary the architecture, compare by dimension.
+            Meta-judges audit the judges, and tables export straight to
+            your paper.
+          </p>
+          <div class="bb-codewrap">
+            <div class="bb-chead">
+              <span class="bb-dot" style="background:#f43f5e"></span>
+              <span class="bb-dot" style="background:#facc15"></span>
+              <span class="bb-dot" style="background:#14b8a6"></span>
+              &nbsp;<span class="bb-fn">ablation_runner.ex</span>
+              <span class="bb-lang">Elixir / PRISM.Runner</span>
+            </div>
+            <pre class="bb-pre"><code class="bb-code"></code></pre>
+          </div>
+          <div class="bb-meta">
+            <span><b>cycle</b> paper-2026</span>
+            <span><b>scenarios</b> frozen + seeded</span>
+            <span><b>export</b> leaderboard CSV</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="bb-note">
+        <em>Illustrative reference hosts.</em> The <code>PRISM.Runner</code>
+        DSL above is a teaching surface, not a published library — the real
+        conformance contract is BYOR (bring-your-own-runner) over MCP, so a
+        Python, TypeScript, or Rust system is scored identically. The nine
+        CL dimensions, three-layer judging, git-grounded ground truth, and
+        IRT calibration are the protocol.
+      </p>
+    </div>
+  </section>
+
   <section class="prism-section prism-section--os" id="opensentience">
     <div class="prism-os">
-      <span class="prism-label">§06 · open research</span>
+      <span class="prism-label">§07 · open research</span>
 
       <div class="prism-os__grid">
         <div class="prism-os__copy">

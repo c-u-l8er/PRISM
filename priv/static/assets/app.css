@@ -1031,3 +1031,128 @@ a { color: var(--ink); text-decoration: none; }
   .prism-nav { order: 3; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 1rem; margin-left: 0; }
   .prism-topbar__meta { margin-left: auto; }
 }
+
+/* ════════════ bb-gallery · portable [&] "by domain" showcase (PRISM skin) ════════════ */
+#prism-industries .bb-gallery {
+  --bb-accent: var(--violet);
+  --bb-accent2: var(--cyan);
+  --bb-ink: var(--ink);
+  --bb-dim: var(--ink-dim);
+  --bb-mute: var(--ink-mute);
+  --bb-line: var(--rule);
+  --bb-codebg: var(--void-2);
+  margin-top: 2.5rem;
+}
+#prism-industries .bb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+#prism-industries .bb-tab {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--bb-dim);
+  background: transparent;
+  border: 1px solid var(--bb-line);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: 0.18s;
+}
+#prism-industries .bb-tab:hover {
+  color: var(--bb-ink);
+  border-color: var(--bb-accent);
+}
+#prism-industries .bb-tab.active {
+  color: var(--void);
+  background: var(--bb-accent);
+  border-color: var(--bb-accent);
+  box-shadow: 0 0 28px -6px var(--bb-accent);
+}
+#prism-industries .bb-panel { display: none; }
+#prism-industries .bb-panel.active {
+  display: block;
+  animation: bb-fade 0.3s ease;
+}
+@keyframes bb-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+#prism-industries .bb-frame {
+  color: var(--bb-dim);
+  max-width: 64ch;
+  margin-bottom: 1.25rem;
+}
+#prism-industries .bb-frame b {
+  color: var(--bb-accent2);
+  font-weight: 500;
+}
+#prism-industries .bb-codewrap {
+  border: 1px solid var(--bb-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bb-codebg);
+}
+#prism-industries .bb-chead {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--bb-line);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--bb-mute);
+}
+#prism-industries .bb-chead .bb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+#prism-industries .bb-chead .bb-fn { color: var(--bb-ink); }
+#prism-industries .bb-chead .bb-lang {
+  margin-left: auto;
+  color: var(--bb-accent);
+}
+#prism-industries pre.bb-pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 1.25rem 1.35rem 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.62;
+  color: var(--bb-dim);
+}
+#prism-industries .bb-c { color: var(--bb-mute); font-style: italic; }
+#prism-industries .bb-s { color: var(--green); }
+#prism-industries .bb-at { color: var(--cyan); }
+#prism-industries .bb-kw { color: var(--violet); }
+#prism-industries .bb-mod { color: var(--ink); }
+#prism-industries .bb-attr { color: var(--orange); }
+#prism-industries .bb-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+#prism-industries .bb-meta span {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--bb-dim);
+  border: 1px solid var(--bb-line);
+  border-radius: 7px;
+  padding: 0.35rem 0.6rem;
+}
+#prism-industries .bb-meta span b { color: var(--bb-accent); font-weight: 500; }
+#prism-industries .bb-note {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--bb-mute);
+  margin-top: 1.75rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--bb-line);
+  max-width: 76ch;
+}
+#prism-industries .bb-note em { color: var(--bb-dim); font-style: normal; }

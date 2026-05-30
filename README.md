@@ -163,23 +163,27 @@ HTTPS proxy at `https://prism-eval.fly.dev`.
 - **LLM**: Anthropic Claude, OpenAI GPT-4o, Google Gemini, OpenRouter
 - **Deploy**: Fly.io (hosted) · `npx -y os-prism` (local)
 
-## Four-Package MCP Stack
+## Three-Package MCP Stack
 
-PRISM ships as one of four npm-distributed MCP servers that together form the [&] three-protocol stack. All four install identically with `npx -y <pkg> --db <path>` and carry their own embedded SQLite + sqlite-vec database:
+PRISM ships as one of three npm-distributed MCP servers that together form the [&] three-protocol stack. All three install identically with `npx -y <pkg> --db <path>` and carry their own embedded SQLite + sqlite-vec database:
 
 | Package        | Role                                     | DB path                         |
 |----------------|------------------------------------------|---------------------------------|
-| `box-and-box`  | [&] Protocol validator / composer        | `~/.box-and-box/specs.db`       |
 | `graphonomous` | Memory loop (5 machines)                 | `~/.graphonomous/knowledge.db`  |
 | `os-prism`     | Diagnostic loop (6 machines, **this**)   | `~/.os-prism/benchmarks.db`     |
 | `os-pulse`     | PULSE manifest registry (8 tools)        | `~/.os-pulse/manifests.db`      |
 
-`.mcp.json` snippet to install all four:
+> The `box-and-box` name now belongs to the [&] **governance kernel** (the
+> eight-rung arithmetic ladder · 97 property-tested laws — `AmpersandBoxDesign/box-and-box/`),
+> not an MCP server. The old `box-and-box` [&] Protocol validator MCP was removed.
+> PRISM's scoring pipeline *is* the kernel's axiological rung at scale — see
+> [`docs/ARITHMETIC_INTEGRATION.md`](./docs/ARITHMETIC_INTEGRATION.md).
+
+`.mcp.json` snippet to install all three:
 
 ```jsonc
 {
   "mcpServers": {
-    "ampersand":    { "command": "npx", "args": ["-y", "box-and-box",  "--db", "~/.box-and-box/specs.db"] },
     "graphonomous": { "command": "npx", "args": ["-y", "graphonomous", "--db", "~/.graphonomous/knowledge.db"] },
     "prism":        { "command": "npx", "args": ["-y", "os-prism",     "--db", "~/.os-prism/benchmarks.db"] },
     "pulse":        { "command": "npx", "args": ["-y", "os-pulse",     "--db", "~/.os-pulse/manifests.db"] }
