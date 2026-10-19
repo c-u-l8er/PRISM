@@ -2,7 +2,7 @@
 ExUnit.start(
   exclude: [
     :integration,
-    # Live PRISM ↔ OS-011 tests require a running Graphonomous MCP
+    # Live PRISM ↔ GRASP tests require a running Graphonomous MCP
     # server (default http://127.0.0.1:4201/mcp, override via
     # GRAPHONOMOUS_LIVE_URL). Run explicitly with:
     #

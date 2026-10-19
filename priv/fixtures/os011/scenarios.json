@@ -1,7 +1,7 @@
 {
   "$schema": "https://prism-eval.ampersandboxdesign.com/schemas/scenarios.v1.json",
   "suite": "os-011-embodiment",
-  "description": "OS-011 Embodiment Protocol benchmark scenarios. Exercise &body.* perceive/act/replay fidelity, SurpriseSignal calibration, and destructive-action authorization across both subtypes (browser, os). Compatible with PRISM `compose(action: scenarios)` MCP tool.",
+  "description": "GRASP benchmark scenarios. Exercise &body.* perceive/act/replay fidelity, SurpriseSignal calibration, and destructive-action authorization across both subtypes (browser, os). Compatible with PRISM `compose(action: scenarios)` MCP tool.",
   "version": "0.1.0",
   "cl_dimensions_exercised": [
     "plasticity",

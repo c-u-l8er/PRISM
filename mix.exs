@@ -19,7 +19,7 @@ defmodule Prism.MixProject do
   def application do
     [
       # :inets + :ssl are needed for `:httpc` requests made by the
-      # simulator's MCP client (and the live OS-011 integration tests).
+      # simulator's MCP client (and the live GRASP integration tests).
       extra_applications: [:logger, :runtime_tools, :inets, :ssl],
       mod: {Prism.Application, []}
     ]

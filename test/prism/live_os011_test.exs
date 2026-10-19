@@ -1,6 +1,6 @@
 defmodule Prism.LiveOs011Test do
   @moduledoc """
-  Live end-to-end test for the OS-011 Embodiment Protocol benchmark.
+  Live end-to-end test for the GRASP benchmark.
 
   Submits the 10 scenarios shipped at `priv/fixtures/os011/scenarios.json`
   into PRISM's `compose(scenarios)` path, then drives a real
@@ -76,7 +76,7 @@ defmodule Prism.LiveOs011Test do
     :ok
   end
 
-  describe "OS-011 benchmark against live Graphonomous" do
+  describe "GRASP benchmark against live Graphonomous" do
     test "all 10 scenarios store via compose(action: \"scenarios\") and are retrievable" do
       anchor = insert_repo_anchor!()
       fixture = File.read!(@fixture) |> Jason.decode!()

@@ -1,6 +1,6 @@
-# OS-011 PRISM Scenario Suite
+# GRASP PRISM Scenario Suite
 
-Ten benchmark scenarios that exercise the OS-011 Embodiment Protocol across
+Ten benchmark scenarios that exercise GRASP across
 both `&body.*` subtypes (browser + os). Designed for the `compose(action:
 scenarios)` MCP tool of PRISM.
 
@@ -19,7 +19,7 @@ scenarios)` MCP tool of PRISM.
 | 9        | epistemic_awareness, forgetting | 5        | I5 mid-trace state_hash fail-fast |
 | 10       | forgetting                    | 2          | Graphonomous priority forgetting on traces |
 
-Every scenario maps to at least one of the OS-011 §7 invariants (I1–I5) or
+Every scenario maps to at least one of the GRASP §7 invariants (I1–I5) or
 the §5.4 replay semantics.
 
 ## Loading into PRISM
